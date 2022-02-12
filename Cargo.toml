@@ -1,0 +1,20 @@
+[package]
+name    = "spin-static-fs"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
+
+[lib]
+crate-type = [ "cdylib" ]
+
+[dependencies]
+# Helpful crate to manage errors.
+anyhow = "1.0"
+# HTTP crate helpful for the header keys.
+http = "0.2"
+# Helper to guess the media type based on the file extension.
+mime_guess = "2.0"
+# The wit-bindgen-rust dependency generates bindings for interfaces.
+wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
+
+[workspace]

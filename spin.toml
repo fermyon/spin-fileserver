@@ -1,0 +1,12 @@
+name = "spin-static-fs"
+version = "0.1.0"
+description = "A simple static server for Spin."
+authors = [ "Radu Matei <radu@fermyon.com>" ]
+trigger = "http"
+
+[[component]]
+source = "target/wasm32-wasi/release/spin_static_fs.wasm"
+id = "fs"
+files = ["**/*"]
+[component.trigger]
+route = "/..."
