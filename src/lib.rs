@@ -21,7 +21,9 @@ impl spin_http::SpinHttp for SpinHttp {
     /// Implement the `handler` entrypoint for Spin HTTP components.
     fn handler(req: Request) -> Response {
         let headers = Some(Self::headers(&req.uri));
-        let (body, status) = match Self::read(&req.uri) {
+        let path =
+            Self::get_header("PATH_INFO", &req.headers).expect("PATH_INFO header must be set");
+        let (body, status) = match Self::read(&path) {
             Ok(b) => (Some(b), 200),
             Err(e) => {
                 eprintln!("Cannot read file: {:?}", e);
@@ -72,5 +74,17 @@ impl SpinHttp {
         };
 
         headers
+    }
+
+    /// Get the value of a header.
+    fn get_header(key: &str, headers: &[(String, String)]) -> Option<String> {
+        let mut res: Option<String> = None;
+        for (k, v) in headers {
+            if k.to_lowercase() == key.to_lowercase() {
+                res = Some(v.clone());
+            }
+        }
+
+        res
     }
 }
