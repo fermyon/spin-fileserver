@@ -1,5 +1,5 @@
 use anyhow::Result;
-use http::header::{CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE};
+use http::header::{ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE};
 use std::{fs::File, io::Read};
 
 // Import the Spin HTTP objects from the generated bindings.
@@ -13,7 +13,7 @@ const CACHE_CONTROL_DEFAULT_VALUE: &str = "max-age=31536000";
 /// Environment variable for the cache configuration.
 const CACHE_CONTROL_ENV: &str = "CACHE_CONTROL";
 /// Environment variable for Accept-Encoding header.
-const ACCEPT_ENCODING: &str = "HTTP_ACCEPT_ENCODING";
+//const ACCEPT_ENCODING: &str = "HTTP_ACCEPT_ENCODING";
 /// Path prefix.
 const PATH_PREFIX_ENV: &str = "PATH_PREFIX";
 /// Brotli compression level 1-11.
@@ -38,12 +38,14 @@ impl ContentEncoding {
     ///
     /// Currently, Brotli is the only one we care about. For the
     /// rest, we don't encode.
-    fn best_encoding() -> ContentEncoding {
-        match std::env::var(ACCEPT_ENCODING) {
-            Err(_) => ContentEncoding::None,
-            Ok(encodings) => {
+    fn best_encoding(req: &Request) -> ContentEncoding {
+        let accept_encoding = req.headers.iter().find(|(k, v)| *k == ACCEPT_ENCODING.to_string());
+        match accept_encoding {
+            None => ContentEncoding::None,
+            Some((_, encodings)) => {
                 match encodings.split(",").find(|s| {
                     let encoding = s.trim().to_lowercase();
+                    eprintln!("Encoding {}", encoding);
                     encoding == BROTLI_ENCODING
                 }) {
                     Some(_) => ContentEncoding::Brotli,
@@ -60,7 +62,7 @@ struct SpinHttp;
 impl spin_http::SpinHttp for SpinHttp {
     /// Implement the `handler` entrypoint for Spin HTTP components.
     fn handler(req: Request) -> Response {
-        let encoding = ContentEncoding::best_encoding();
+        let encoding = ContentEncoding::best_encoding(&req);
         let path =
             Self::get_header("PATH_INFO", &req.headers).expect("PATH_INFO header must be set");
         let (body, status) = match Self::read(&path, &encoding) {
