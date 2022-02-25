@@ -10,6 +10,8 @@ crate-type = [ "cdylib" ]
 [dependencies]
 # Helpful crate to manage errors.
 anyhow = "1.0"
+# Brotli compression makes big things less big
+brotli = "3.3"
 # HTTP crate helpful for the header keys.
 http = "0.2"
 # Helper to guess the media type based on the file extension.
