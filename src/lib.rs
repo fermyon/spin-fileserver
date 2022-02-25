@@ -39,13 +39,12 @@ impl ContentEncoding {
     /// Currently, Brotli is the only one we care about. For the
     /// rest, we don't encode.
     fn best_encoding(req: &Request) -> ContentEncoding {
-        let accept_encoding = req.headers.iter().find(|(k, v)| *k == ACCEPT_ENCODING.to_string());
+        let accept_encoding = req.headers.iter().find(|(k, _v)| *k == ACCEPT_ENCODING.to_string());
         match accept_encoding {
             None => ContentEncoding::None,
             Some((_, encodings)) => {
                 match encodings.split(",").find(|s| {
                     let encoding = s.trim().to_lowercase();
-                    eprintln!("Encoding {}", encoding);
                     encoding == BROTLI_ENCODING
                 }) {
                     Some(_) => ContentEncoding::Brotli,
