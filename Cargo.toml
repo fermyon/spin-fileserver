@@ -10,13 +10,17 @@ crate-type = [ "cdylib" ]
 [dependencies]
 # Helpful crate to manage errors.
 anyhow = "1.0"
+# Crate to simplify working with bytes.
+bytes = "1.0"
 # Brotli compression makes big things less big
 brotli = "3.3"
 # HTTP crate helpful for the header keys.
 http = "0.2"
 # Helper to guess the media type based on the file extension.
 mime_guess = "2.0"
+# The Spin SDK.
+spin-sdk = { path = "../../spin/sdk/rust", version = "0.1.0" }
 # The wit-bindgen-rust dependency generates bindings for interfaces.
-wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "439c5f8cee12a7f831103c27e2198cfd4b4bad24" }
+wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }
 
 [workspace]

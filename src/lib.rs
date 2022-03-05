@@ -1,21 +1,16 @@
-use anyhow::Result;
-use http::header::{ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE};
+use anyhow::{anyhow, Result};
+use bytes::Bytes;
+use http::{
+    header::{ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE},
+    HeaderMap, HeaderValue, StatusCode,
+};
+use spin_sdk::http::{not_found, Request, Response};
 use std::{fs::File, io::Read};
-
-// Import the Spin HTTP objects from the generated bindings.
-use spin_http::{Request, Response};
-
-// Generate Rust bindings for interface defined in spin-http.wit file
-wit_bindgen_rust::export!("spin-http.wit");
 
 /// The default value for the cache control header.
 const CACHE_CONTROL_DEFAULT_VALUE: &str = "max-age=31536000";
 /// Environment variable for the cache configuration.
 const CACHE_CONTROL_ENV: &str = "CACHE_CONTROL";
-/// Environment variable for Accept-Encoding header.
-//const ACCEPT_ENCODING: &str = "HTTP_ACCEPT_ENCODING";
-/// Path prefix.
-const PATH_PREFIX_ENV: &str = "PATH_PREFIX";
 /// Brotli compression level 1-11.
 ///
 /// 5-6 is considered the balance between compression time and
@@ -23,10 +18,12 @@ const PATH_PREFIX_ENV: &str = "PATH_PREFIX";
 const BROTLI_LEVEL: u32 = 3;
 /// Brotli content encoding identifier
 const BROTLI_ENCODING: &str = "br";
+/// The path info header.
+const PATH_INFO_HEADER: &str = "PATH_INFO";
 
 /// Common Content Encodings
 #[derive(PartialEq)]
-enum ContentEncoding {
+pub enum ContentEncoding {
     Brotli,
     //Deflate, // Could use flate2 for this
     //Gzip,    // Could use flate2 for this
@@ -38,61 +35,48 @@ impl ContentEncoding {
     ///
     /// Currently, Brotli is the only one we care about. For the
     /// rest, we don't encode.
-    fn best_encoding(req: &Request) -> ContentEncoding {
-        let accept_encoding = req.headers.iter().find(|(k, _v)| *k == ACCEPT_ENCODING.to_string());
-        match accept_encoding {
-            None => ContentEncoding::None,
-            Some((_, encodings)) => {
-                match encodings.split(",").find(|s| {
-                    let encoding = s.trim().to_lowercase();
-                    encoding == BROTLI_ENCODING
-                }) {
-                    Some(_) => ContentEncoding::Brotli,
-                    None => ContentEncoding::None,
+    fn from_req(req: &Request) -> Result<Self> {
+        match req.headers().get(ACCEPT_ENCODING) {
+            Some(e) => {
+                match e
+                    .to_str()?
+                    .split(',')
+                    .map(|ce| ce.trim().to_lowercase())
+                    .find(|ce| ce == BROTLI_ENCODING)
+                {
+                    Some(_) => Ok(ContentEncoding::Brotli),
+                    None => Ok(ContentEncoding::None),
                 }
             }
+            None => Ok(ContentEncoding::None),
         }
     }
 }
 
-/// The Spin HTTP component.
-struct SpinHttp;
+#[spin_sdk::http_component]
+fn serve(req: Request) -> Result<Response> {
+    let enc = ContentEncoding::from_req(&req)?;
+    let path = req
+        .headers()
+        .get(PATH_INFO_HEADER)
+        .expect("PATH_INFO header must be set by the Spin runtime")
+        .to_str()?;
 
-impl spin_http::SpinHttp for SpinHttp {
-    /// Implement the `handler` entrypoint for Spin HTTP components.
-    fn handler(req: Request) -> Response {
-        let encoding = ContentEncoding::best_encoding(&req);
-        let path =
-            Self::get_header("PATH_INFO", &req.headers).expect("PATH_INFO header must be set");
-        let (body, status) = match Self::read(&path, &encoding) {
-            Ok(b) => (Some(b), 200),
-            Err(e) => {
-                eprintln!("Cannot read file: {:?}", e);
-                // Error headers are different than success headers
-                return Response {
-                    status: 404,
-                    headers: Some(Self::error_headers()),
-                    body: Some("Not Found".as_bytes().to_vec()),
-                };
-            }
-        };
-        let headers = Some(Self::headers(&req.uri, encoding));
-        Response {
-            headers,
-            body,
-            status,
+    let (body, status) = match FileServer::read(path, &enc) {
+        Ok(b) => (Some(b), StatusCode::OK),
+        Err(e) => {
+            eprintln!("Cannot read file: {:?}", e);
+            return not_found();
         }
-    }
+    };
+
+    FileServer::send(status, body, path, enc)
 }
 
-impl SpinHttp {
+struct FileServer;
+impl FileServer {
     /// Open the file given its path and return its content and content type header.
-    fn read(path: &str, encoding: &ContentEncoding) -> Result<Vec<u8>> {
-        let path = match std::env::var(PATH_PREFIX_ENV) {
-            Ok(prefix) => format!("{}{}", prefix, &path[1..path.len()]),
-            Err(_) => path.to_string(),
-        };
-
+    fn read(path: &str, encoding: &ContentEncoding) -> Result<Bytes> {
         let mut file = File::open(path)?;
         let mut buf = vec![];
         match encoding {
@@ -103,7 +87,7 @@ impl SpinHttp {
             _ => file.read_to_end(&mut buf),
         }?;
 
-        Ok(buf)
+        Ok(buf.into())
     }
 
     /// Return the media type of the file based on the path.
@@ -112,39 +96,37 @@ impl SpinHttp {
         guess.first().map(|m| m.to_string())
     }
 
-    /// The response headers.
-    fn headers(uri: &str, encoding: ContentEncoding) -> Vec<(String, String)> {
-        let mut headers = vec![];
+    fn append_headers(path: &str, enc: ContentEncoding, headers: &mut HeaderMap) -> Result<()> {
         let cache_control = match std::env::var(CACHE_CONTROL_ENV) {
-            Ok(c) => c,
-            Err(_) => CACHE_CONTROL_DEFAULT_VALUE.to_string(),
+            Ok(c) => HeaderValue::from_str(&c)?,
+            Err(_) => HeaderValue::from_str(CACHE_CONTROL_DEFAULT_VALUE)?,
         };
-        headers.push((CACHE_CONTROL.to_string(), cache_control));
-        if encoding == ContentEncoding::Brotli {
-            headers.push((CONTENT_ENCODING.to_string(), BROTLI_ENCODING.to_string()));
+        headers.insert(CACHE_CONTROL, cache_control);
+
+        if enc == ContentEncoding::Brotli {
+            headers.insert(CONTENT_ENCODING, HeaderValue::from_str(BROTLI_ENCODING)?);
         }
 
-        if let Some(m) = Self::mime(uri) {
-            headers.push((CONTENT_TYPE.to_string(), m));
+        if let Some(m) = Self::mime(path) {
+            headers.insert(CONTENT_TYPE, HeaderValue::from_str(&m)?);
         };
 
-        headers
+        Ok(())
     }
 
-    /// Create headers for a plain text error message.
-    fn error_headers() -> Vec<(String, String)> {
-        vec![(CONTENT_TYPE.to_string(), "text/plain".to_string())]
-    }
+    fn send(
+        status: StatusCode,
+        body: Option<Bytes>,
+        path: &str,
+        enc: ContentEncoding,
+    ) -> Result<Response> {
+        let mut res = http::Response::builder().status(status);
 
-    /// Get the value of a header.
-    fn get_header(key: &str, headers: &[(String, String)]) -> Option<String> {
-        let mut res: Option<String> = None;
-        for (k, v) in headers {
-            if k.to_lowercase() == key.to_lowercase() {
-                res = Some(v.clone());
-            }
-        }
+        let mut headers = res
+            .headers_mut()
+            .ok_or(anyhow!("cannot get headers for response"))?;
+        FileServer::append_headers(path, enc, &mut headers)?;
 
-        res
+        Ok(res.body(body)?)
     }
 }
