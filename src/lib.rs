@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use http::{
     header::{ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE},
-    HeaderMap, HeaderValue, StatusCode,
+    HeaderMap, StatusCode,
 };
 use spin_sdk::http::{not_found, Request, Response};
 use std::{fs::File, io::Read};
@@ -35,7 +35,7 @@ impl ContentEncoding {
     ///
     /// Currently, Brotli is the only one we care about. For the
     /// rest, we don't encode.
-    fn from_req(req: &Request) -> Result<Self> {
+    fn best_encoding(req: &Request) -> Result<Self> {
         match req.headers().get(ACCEPT_ENCODING) {
             Some(e) => {
                 match e
@@ -55,7 +55,7 @@ impl ContentEncoding {
 
 #[spin_sdk::http_component]
 fn serve(req: Request) -> Result<Response> {
-    let enc = ContentEncoding::from_req(&req)?;
+    let enc = ContentEncoding::best_encoding(&req)?;
     let path = req
         .headers()
         .get(PATH_INFO_HEADER)
@@ -98,17 +98,17 @@ impl FileServer {
 
     fn append_headers(path: &str, enc: ContentEncoding, headers: &mut HeaderMap) -> Result<()> {
         let cache_control = match std::env::var(CACHE_CONTROL_ENV) {
-            Ok(c) => HeaderValue::from_str(&c)?,
-            Err(_) => HeaderValue::from_str(CACHE_CONTROL_DEFAULT_VALUE)?,
+            Ok(c) => c.try_into()?,
+            Err(_) => CACHE_CONTROL_DEFAULT_VALUE.try_into()?,
         };
         headers.insert(CACHE_CONTROL, cache_control);
 
         if enc == ContentEncoding::Brotli {
-            headers.insert(CONTENT_ENCODING, HeaderValue::from_str(BROTLI_ENCODING)?);
+            headers.insert(CONTENT_ENCODING, BROTLI_ENCODING.try_into()?);
         }
 
         if let Some(m) = Self::mime(path) {
-            headers.insert(CONTENT_TYPE, HeaderValue::from_str(&m)?);
+            headers.insert(CONTENT_TYPE, m.try_into()?);
         };
 
         Ok(())
