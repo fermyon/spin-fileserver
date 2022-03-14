@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use http::{
     header::{ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE},
@@ -77,7 +77,7 @@ struct FileServer;
 impl FileServer {
     /// Open the file given its path and return its content and content type header.
     fn read(path: &str, encoding: &ContentEncoding) -> Result<Bytes> {
-        let mut file = File::open(path)?;
+        let mut file = File::open(path).with_context(|| anyhow!("cannot open {}", path))?;
         let mut buf = vec![];
         match encoding {
             ContentEncoding::Brotli => {
@@ -121,11 +121,10 @@ impl FileServer {
         enc: ContentEncoding,
     ) -> Result<Response> {
         let mut res = http::Response::builder().status(status);
-
-        let mut headers = res
+        let headers = res
             .headers_mut()
             .ok_or(anyhow!("cannot get headers for response"))?;
-        FileServer::append_headers(path, enc, &mut headers)?;
+        FileServer::append_headers(path, enc, headers)?;
 
         Ok(res.body(body)?)
     }

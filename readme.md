@@ -22,7 +22,7 @@ will serve them.
 Running the static server:
 
 ```shell
-$ spin up --listen 127.0.0.1:3000 --app spin.toml
+$ spin up --listen 127.0.0.1:3000 --file spin.toml
 ```
 
 At this point, the component is going to serve all files in the current

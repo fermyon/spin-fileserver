@@ -1,4 +1,4 @@
-apiVersion = "0.1.0"
+spin_version = "1"
 name = "spin-static-fs"
 version = "0.1.0"
 description = "A simple static server for Spin."
