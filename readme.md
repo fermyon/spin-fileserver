@@ -14,7 +14,6 @@ id = "fileserver"
 files = ["**/*"]
 [component.trigger]
 route = "/..."
-executor = "spin"
 ```
 
 This component will recursively mount all files from the current directory and
@@ -23,7 +22,7 @@ will serve them.
 Running the static server:
 
 ```shell
-$ spin up --listen 127.0.0.1:3000 --app spin.toml
+$ spin up --listen 127.0.0.1:3000 --file spin.toml
 ```
 
 At this point, the component is going to serve all files in the current
@@ -38,14 +37,6 @@ $ curl localhost:3000/LICENSE
 TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 ...
 ```
-
-### Prefixing a path
-
-`PATH_PREFIX` is an environment variable that sets a specific path prefix for
-files before resolving the path on the filesystem, so instead of doing
-`http://example.com/static/static/foo.png`, the environment variable will take
-the `http://example.com/static/foo.png` request and will resolve on the
-filesystem to `static/foo.png` instead of `foo.png`.
 
 ### Setting the cache header
 
