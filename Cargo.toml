@@ -19,7 +19,7 @@ http = "0.2"
 # Helper to guess the media type based on the file extension.
 mime_guess = "2.0"
 # The Spin SDK.
-spin-sdk = { git = "https://github.com/fermyon/spin", rev = "b1e1b57a8d92ff3dc400d1c02486fd3afd1b10f9" }
+spin-sdk = { git = "https://github.com/fermyon/spin", rev = "40714a18a5963eb5c29bcf3643319fbd04dd8cd7" }
 # The wit-bindgen-rust dependency generates bindings for interfaces.
 wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "e9c7c0a3405845cecd3fe06f3c20ab413302fc73" }
 
