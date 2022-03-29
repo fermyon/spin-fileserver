@@ -19,7 +19,7 @@ const BROTLI_LEVEL: u32 = 3;
 /// Brotli content encoding identifier
 const BROTLI_ENCODING: &str = "br";
 /// The path info header.
-const PATH_INFO_HEADER: &str = "PATH_INFO";
+const PATH_INFO_HEADER: &str = "spin-path-info";
 
 /// Common Content Encodings
 #[derive(PartialEq)]
