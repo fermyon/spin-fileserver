@@ -5,9 +5,10 @@ description = "A simple static server for Spin."
 authors = [ "Radu Matei <radu@fermyon.com>" ]
 trigger = {type = "http", base = "/" }
 
+# For more on configuring a component, see: https://spin.fermyon.dev/configuration/
 [[component]]
 source = "target/wasm32-wasi/release/spin_static_fs.wasm"
 id = "fs"
-files = ["**/*"]
+files = ["content/**/*"]
 [component.trigger]
 route = "/..."
