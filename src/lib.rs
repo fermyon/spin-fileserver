@@ -1,11 +1,16 @@
 use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use http::{
-    header::{ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE},
+    header::{ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE, ETAG, IF_NONE_MATCH},
     HeaderMap, StatusCode,
 };
 use spin_sdk::http::{not_found, Request, Response};
-use std::{fs::File, io::Read};
+use std::{
+    collections::hash_map::DefaultHasher,
+    fs::File,
+    hash::{Hash, Hasher},
+    io::Read,
+};
 
 /// The default value for the cache control header.
 const CACHE_CONTROL_DEFAULT_VALUE: &str = "max-age=31536000";
@@ -61,16 +66,22 @@ fn serve(req: Request) -> Result<Response> {
         .get(PATH_INFO_HEADER)
         .expect("PATH_INFO header must be set by the Spin runtime")
         .to_str()?;
+    let if_none_match = req
+        .headers()
+        .get(IF_NONE_MATCH)
+        .map(|h| h.to_str())
+        .unwrap_or(Ok(""))?;
 
-    let (body, status) = match FileServer::read(path, &enc) {
-        Ok(b) => (Some(b), StatusCode::OK),
+    let body = match FileServer::read(path, &enc) {
+        Ok(b) => Some(b),
         Err(e) => {
             eprintln!("Cannot read file: {:?}", e);
             return not_found();
         }
     };
 
-    FileServer::send(status, body, path, enc)
+    let etag = FileServer::get_etag(body.clone());
+    FileServer::send(body, path, enc, &etag, if_none_match)
 }
 
 struct FileServer;
@@ -96,12 +107,18 @@ impl FileServer {
         guess.first().map(|m| m.to_string())
     }
 
-    fn append_headers(path: &str, enc: ContentEncoding, headers: &mut HeaderMap) -> Result<()> {
+    fn append_headers(
+        path: &str,
+        enc: ContentEncoding,
+        etag: &str,
+        headers: &mut HeaderMap,
+    ) -> Result<()> {
         let cache_control = match std::env::var(CACHE_CONTROL_ENV) {
             Ok(c) => c.try_into()?,
             Err(_) => CACHE_CONTROL_DEFAULT_VALUE.try_into()?,
         };
         headers.insert(CACHE_CONTROL, cache_control);
+        headers.insert(ETAG, etag.try_into()?);
 
         if enc == ContentEncoding::Brotli {
             headers.insert(CONTENT_ENCODING, BROTLI_ENCODING.try_into()?);
@@ -115,17 +132,27 @@ impl FileServer {
     }
 
     fn send(
-        status: StatusCode,
         body: Option<Bytes>,
         path: &str,
         enc: ContentEncoding,
+        etag: &str,
+        if_none_match: &str,
     ) -> Result<Response> {
-        let mut res = http::Response::builder().status(status);
+        let mut res = http::Response::builder();
         let headers = res
             .headers_mut()
             .ok_or(anyhow!("cannot get headers for response"))?;
-        FileServer::append_headers(path, enc, headers)?;
+        FileServer::append_headers(path, enc, etag, headers)?;
 
-        Ok(res.body(body)?)
+        if etag == if_none_match {
+            return Ok(res.status(StatusCode::NOT_MODIFIED).body(None)?);
+        }
+        Ok(res.status(StatusCode::OK).body(body)?)
+    }
+
+    fn get_etag(body: Option<Bytes>) -> String {
+        let mut state = DefaultHasher::new();
+        body.unwrap_or_default().hash(&mut state);
+        state.finish().to_string()
     }
 }
