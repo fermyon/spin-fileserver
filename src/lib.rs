@@ -27,7 +27,7 @@ const BROTLI_ENCODING: &str = "br";
 const PATH_INFO_HEADER: &str = "spin-path-info";
 
 /// Common Content Encodings
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum ContentEncoding {
     Brotli,
     //Deflate, // Could use flate2 for this
@@ -154,5 +154,117 @@ impl FileServer {
         let mut state = DefaultHasher::new();
         body.unwrap_or_default().hash(&mut state);
         state.finish().to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use http::header::{ACCEPT_ENCODING, IF_NONE_MATCH};
+
+    use super::*;
+
+    #[test]
+    fn test_best_encoding_none() {
+        let req = http::Request::builder()
+            .uri("http://thisistest.com")
+            .body(Some(bytes::Bytes::default()))
+            .unwrap();
+        let enc = ContentEncoding::best_encoding(&req).unwrap();
+        assert_eq!(enc, ContentEncoding::None);
+    }
+
+    #[test]
+    fn test_best_encoding_not_br() {
+        let req = http::Request::builder()
+            .uri("http://thisistest.com")
+            .header(ACCEPT_ENCODING, "gzip")
+            .body(Some(bytes::Bytes::default()))
+            .unwrap();
+        let enc = ContentEncoding::best_encoding(&req).unwrap();
+        assert_eq!(enc, ContentEncoding::None);
+    }
+
+    #[test]
+    fn test_best_encoding_with_br() {
+        let req = http::Request::builder()
+            .uri("http://thisistest.com")
+            .header(ACCEPT_ENCODING, "gzip,br")
+            .body(Some(bytes::Bytes::default()))
+            .unwrap();
+        let enc = ContentEncoding::best_encoding(&req).unwrap();
+        assert_eq!(enc, ContentEncoding::Brotli);
+    }
+
+    #[test]
+    fn test_serve_file_found() {
+        let req = spin_http::Request {
+            method: spin_http::Method::Get,
+            uri: "http://thisistest.com".to_string(),
+            headers: vec![(
+                PATH_INFO_HEADER.to_string(),
+                "./content/hello-test.txt".to_string(),
+            )],
+            params: vec![],
+            body: None,
+        };
+        let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
+        assert_eq!(rsp.status, 200);
+    }
+
+    #[test]
+    fn test_serve_with_etag() {
+        let req = spin_http::Request {
+            method: spin_http::Method::Get,
+            uri: "http://thisistest.com".to_string(),
+            headers: vec![
+                (
+                    PATH_INFO_HEADER.to_string(),
+                    "./content/hello-test.txt".to_string(),
+                ),
+                (
+                    IF_NONE_MATCH.to_string(),
+                    "13946318585003701156".to_string(),
+                ),
+            ],
+            params: vec![],
+            body: None,
+        };
+        let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
+        assert_eq!(rsp.status, 304);
+    }
+
+    #[test]
+    fn test_serve_with_not_matched_etag() {
+        let req = spin_http::Request {
+            method: spin_http::Method::Get,
+            uri: "http://thisistest.com".to_string(),
+            headers: vec![
+                (
+                    PATH_INFO_HEADER.to_string(),
+                    "./content/hello-test.txt".to_string(),
+                ),
+                (IF_NONE_MATCH.to_string(), "".to_string()),
+            ],
+            params: vec![],
+            body: None,
+        };
+        let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
+        assert_eq!(rsp.status, 200);
+    }
+
+    #[test]
+    fn test_serve_file_not_found() {
+        let req = spin_http::Request {
+            method: spin_http::Method::Get,
+            uri: "http://thisistest.com".to_string(),
+            headers: vec![(
+                PATH_INFO_HEADER.to_string(),
+                "not-existent-file".to_string(),
+            )],
+            params: vec![],
+            body: None,
+        };
+        let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
+        assert_eq!(rsp.status, 404);
     }
 }

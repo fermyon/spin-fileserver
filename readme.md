@@ -58,3 +58,17 @@ Compiling the component:
 ```shell
 $ cargo build --release
 ```
+
+### Testing
+
+Prerequisites:
+
+- [Rust](https://www.rust-lang.org/) at
+  [1.56+](https://www.rust-lang.org/tools/install) with the `wasm32-wasi` target
+  configured
+
+Running test cases:
+
+```shell
+$ make test
+```
