@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Rust
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "README.md"
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  build:
+    name: Build Spin
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config:
+          - {
+              os: "ubuntu-latest",
+              platformAgnosticChecks: true,
+            }
+          - {
+              os: "macos-latest",
+            }
+          - {
+              os: "windows-latest",
+            }
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install latest Rust stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+          components: clippy, rustfmt
+
+      - name: "Install Wasm Rust target"
+        run: rustup target add wasm32-wasi
+
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Lint 
+        if: ${{ matrix.config.platformAgnosticChecks }}
+        run:
+          make lint
+
+      - name: Cargo Build
+        run: cargo build --release
+
+      - name: Cargo Test
+        run: |
+          make test-unit
+        env:
+          RUST_LOG: spin=trace
