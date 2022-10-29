@@ -13,7 +13,7 @@ use std::{
 };
 
 /// The default value for the cache control header.
-const CACHE_CONTROL_DEFAULT_VALUE: &str = "max-age=31536000";
+const CACHE_CONTROL_DEFAULT_VALUE: &str = "max-age=60";
 /// Environment variable for the cache configuration.
 const CACHE_CONTROL_ENV: &str = "CACHE_CONTROL";
 /// Brotli compression level 1-11.
@@ -27,7 +27,7 @@ const BROTLI_ENCODING: &str = "br";
 const PATH_INFO_HEADER: &str = "spin-path-info";
 
 /// Common Content Encodings
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum ContentEncoding {
     Brotli,
     //Deflate, // Could use flate2 for this
