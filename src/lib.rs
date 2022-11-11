@@ -72,6 +72,11 @@ fn serve(req: Request) -> Result<Response> {
         .map(|h| h.to_str())
         .unwrap_or(Ok(""))?;
 
+    let path = match path {
+        "/" => "index.html",
+        _ => path,
+    };
+
     let body = match FileServer::read(path, &enc) {
         Ok(b) => Some(b),
         Err(e) => {
@@ -266,5 +271,18 @@ mod tests {
         };
         let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
         assert_eq!(rsp.status, 404);
+    }
+
+    #[test]
+    fn test_serve_index() {
+        let req = spin_http::Request {
+            method: spin_http::Method::Get,
+            uri: "http://thisistest.com".to_string(),
+            headers: vec![(PATH_INFO_HEADER.to_string(), "/".to_string())],
+            params: vec![],
+            body: None,
+        };
+        let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
+        assert_eq!(rsp.status, 200);
     }
 }
