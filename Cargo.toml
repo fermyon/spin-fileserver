@@ -1,11 +1,11 @@
 [package]
-name    = "spin-static-fs"
+name = "spin-static-fs"
 version = "0.1.0"
 edition = "2021"
-authors = [ "Radu Matei <radu.matei@fermyon.com>" ]
+authors = ["Radu Matei <radu.matei@fermyon.com>"]
 
 [lib]
-crate-type = [ "cdylib" ]
+crate-type = ["cdylib"]
 
 [dependencies]
 # Helpful crate to manage errors.
@@ -19,8 +19,8 @@ http = "0.2"
 # Helper to guess the media type based on the file extension.
 mime_guess = "2.0"
 # The Spin SDK.
-spin-sdk = { git = "https://github.com/fermyon/spin", rev = "4c6ec40ef8b518c1e901a476c752ad961525bef8" }
+spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v0.6.0" }
 # The wit-bindgen-rust dependency generates bindings for interfaces.
-wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "dde4694aaa6acf9370206527a798ac4ba6a8c5b8" }
+wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }
 
 [workspace]
