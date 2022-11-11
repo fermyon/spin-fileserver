@@ -27,7 +27,7 @@ const BROTLI_ENCODING: &str = "br";
 const PATH_INFO_HEADER: &str = "spin-path-info";
 
 /// Common Content Encodings
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum ContentEncoding {
     Brotli,
     //Deflate, // Could use flate2 for this
