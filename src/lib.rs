@@ -205,10 +205,7 @@ mod tests {
         let req = spin_http::Request {
             method: spin_http::Method::Get,
             uri: "http://thisistest.com".to_string(),
-            headers: vec![(
-                PATH_INFO_HEADER.to_string(),
-                "./content/hello-test.txt".to_string(),
-            )],
+            headers: vec![(PATH_INFO_HEADER.to_string(), "./hello-test.txt".to_string())],
             params: vec![],
             body: None,
         };
@@ -222,10 +219,7 @@ mod tests {
             method: spin_http::Method::Get,
             uri: "http://thisistest.com".to_string(),
             headers: vec![
-                (
-                    PATH_INFO_HEADER.to_string(),
-                    "./content/hello-test.txt".to_string(),
-                ),
+                (PATH_INFO_HEADER.to_string(), "./hello-test.txt".to_string()),
                 (
                     IF_NONE_MATCH.to_string(),
                     "13946318585003701156".to_string(),
@@ -244,10 +238,7 @@ mod tests {
             method: spin_http::Method::Get,
             uri: "http://thisistest.com".to_string(),
             headers: vec![
-                (
-                    PATH_INFO_HEADER.to_string(),
-                    "./content/hello-test.txt".to_string(),
-                ),
+                (PATH_INFO_HEADER.to_string(), "./hello-test.txt".to_string()),
                 (IF_NONE_MATCH.to_string(), "".to_string()),
             ],
             params: vec![],
