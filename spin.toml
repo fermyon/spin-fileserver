@@ -9,6 +9,8 @@ trigger = {type = "http", base = "/" }
 [[component]]
 source = "target/wasm32-wasi/release/spin_static_fs.wasm"
 id = "fs"
-files = ["content/**/*"]
+files = [{ source = "", destination = "/" }]
 [component.trigger]
 route = "/..."
+[component.build]
+command = "make"
