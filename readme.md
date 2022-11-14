@@ -11,13 +11,13 @@ Let's have a look at the component definition (from `spin.toml`):
 [[component]]
 source = "spin_static_fs.wasm"
 id = "fileserver"
-files = ["**/*"]
+files = [{ source = "", destination = "/" }]
 [component.trigger]
 route = "/..."
 ```
 
 This component will recursively mount all files from the current directory and
-will serve them.
+will serve them. If an `index.html` file is in the source root, it will be served if no file is specified.
 
 Running the static server:
 
@@ -42,7 +42,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
 Currently, this file server has a single cache header that it can set through
 the `CACHE_CONTROL` environment variable. If no value is set, the default
-`max-age=31536000` is used instead for all media types.
+`max-age=60` is used instead for all media types.
 
 ### Building from source and using
 
