@@ -25,6 +25,8 @@ const BROTLI_LEVEL: u32 = 3;
 const BROTLI_ENCODING: &str = "br";
 /// The path info header.
 const PATH_INFO_HEADER: &str = "spin-path-info";
+// Environment variable for the fallback path
+const FALLBACK_PATH_ENV: &str = "FALLBACK_PATH";
 
 /// Common Content Encodings
 #[derive(Debug, Eq, PartialEq)]
@@ -77,7 +79,19 @@ fn serve(req: Request) -> Result<Response> {
         _ => path,
     };
 
-    let body = match FileServer::read(path, &enc) {
+    // read from the fallback path if the variable exists
+    let read_result = match std::env::var(FALLBACK_PATH_ENV) {
+        Ok(fallback_path) => {
+            println!("Fallback Path: {:?}", fallback_path);
+            FileServer::read(path, &enc).or_else(|_| FileServer::read(fallback_path.as_str(), &enc))
+        }
+        Err(e) => {
+            eprintln!("Cannot read env var: {:?}", e);
+            FileServer::read(path, &enc)
+        }
+    };
+
+    let body = match read_result {
         Ok(b) => Some(b),
         Err(e) => {
             eprintln!("Cannot read file: {:?}", e);
@@ -262,6 +276,26 @@ mod tests {
         };
         let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
         assert_eq!(rsp.status, 404);
+    }
+
+    #[test]
+    fn test_serve_file_not_found_with_fallback_path() {
+        //NOTE: this test must not run in parallel to other tests because of it's use of an environment variable
+        //      hence the `--test-threads=1` in the `make test` target
+        std::env::set_var(FALLBACK_PATH_ENV, "hello-test.txt");
+        let req = spin_http::Request {
+            method: spin_http::Method::Get,
+            uri: "http://thisistest.com".to_string(),
+            headers: vec![(
+                PATH_INFO_HEADER.to_string(),
+                "not-existent-file".to_string(),
+            )],
+            params: vec![],
+            body: None,
+        };
+        let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
+        std::env::remove_var(FALLBACK_PATH_ENV);
+        assert_eq!(rsp.status, 200);
     }
 
     #[test]
