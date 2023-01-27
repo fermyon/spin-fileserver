@@ -82,11 +82,11 @@ fn serve(req: Request) -> Result<Response> {
     // read from the fallback path if the variable exists
     let read_result = match std::env::var(FALLBACK_PATH_ENV) {
         Ok(fallback_path) => {
-            println!("Fallback Path: {:?}", fallback_path);
+            println!("Fallback Path: {fallback_path:?}");
             FileServer::read(path, &enc).or_else(|_| FileServer::read(fallback_path.as_str(), &enc))
         }
         Err(e) => {
-            eprintln!("Cannot read env var: {:?}", e);
+            eprintln!("Cannot read env var: {e:?}");
             FileServer::read(path, &enc)
         }
     };
@@ -94,7 +94,7 @@ fn serve(req: Request) -> Result<Response> {
     let body = match read_result {
         Ok(b) => Some(b),
         Err(e) => {
-            eprintln!("Cannot read file: {:?}", e);
+            eprintln!("Cannot read file: {e:?}");
             return not_found();
         }
     };
