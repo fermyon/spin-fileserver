@@ -80,23 +80,18 @@ fn serve(req: Request) -> Result<Response> {
     };
 
     // read from the fallback path if the variable exists
-    let read_result = match std::env::var(FALLBACK_PATH_ENV) {
-        Ok(fallback_path) => {
-            println!("Fallback Path: {fallback_path:?}");
-            FileServer::read(path, &enc).or_else(|_| FileServer::read(fallback_path.as_str(), &enc))
-        }
-        Err(e) => {
-            eprintln!("Cannot read env var: {e:?}");
-            FileServer::read(path, &enc)
-        }
-    };
-
-    let body = match read_result {
+    let body = match FileServer::read(path, &enc) {
+        // requested file was found
         Ok(b) => Some(b),
-        Err(e) => {
-            eprintln!("Cannot read file: {e:?}");
-            return not_found();
-        }
+        Err(e) => match std::env::var(FALLBACK_PATH_ENV) {
+            // try to read the fallback path
+            Ok(fallback_path) => FileServer::read(fallback_path.as_str(), &enc).ok(),
+            // fallback path config not found
+            Err(_) => {
+                eprintln!("Cannot read file: {:?}", e);
+                None
+            }
+        },
     };
 
     let etag = FileServer::get_etag(body.clone());
@@ -163,10 +158,14 @@ impl FileServer {
             .ok_or(anyhow!("cannot get headers for response"))?;
         FileServer::append_headers(path, enc, etag, headers)?;
 
-        if etag == if_none_match {
-            return Ok(res.status(StatusCode::NOT_MODIFIED).body(None)?);
+        if body.is_some() {
+            if etag == if_none_match {
+                return Ok(res.status(StatusCode::NOT_MODIFIED).body(None)?);
+            }
+            Ok(res.status(StatusCode::OK).body(body)?)
+        } else {
+            not_found()
         }
-        Ok(res.status(StatusCode::OK).body(body)?)
     }
 
     fn get_etag(body: Option<Bytes>) -> String {
