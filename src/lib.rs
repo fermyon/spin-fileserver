@@ -88,7 +88,7 @@ fn serve(req: Request) -> Result<Response> {
             Ok(fallback_path) => FileServer::read(fallback_path.as_str(), &enc).ok(),
             // fallback path config not found
             Err(_) => {
-                eprintln!("Cannot read file: {:?}", e);
+                eprintln!("Cannot read file: {e:?}");
                 None
             }
         },
