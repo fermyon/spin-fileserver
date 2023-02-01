@@ -25,6 +25,8 @@ const BROTLI_LEVEL: u32 = 3;
 const BROTLI_ENCODING: &str = "br";
 /// The path info header.
 const PATH_INFO_HEADER: &str = "spin-path-info";
+// Environment variable for the fallback path
+const FALLBACK_PATH_ENV: &str = "FALLBACK_PATH";
 
 /// Common Content Encodings
 #[derive(Debug, Eq, PartialEq)]
@@ -77,12 +79,19 @@ fn serve(req: Request) -> Result<Response> {
         _ => path,
     };
 
+    // read from the fallback path if the variable exists
     let body = match FileServer::read(path, &enc) {
+        // requested file was found
         Ok(b) => Some(b),
-        Err(e) => {
-            eprintln!("Cannot read file: {:?}", e);
-            return not_found();
-        }
+        Err(e) => match std::env::var(FALLBACK_PATH_ENV) {
+            // try to read the fallback path
+            Ok(fallback_path) => FileServer::read(fallback_path.as_str(), &enc).ok(),
+            // fallback path config not found
+            Err(_) => {
+                eprintln!("Cannot read file: {e:?}");
+                None
+            }
+        },
     };
 
     let etag = FileServer::get_etag(body.clone());
@@ -149,10 +158,14 @@ impl FileServer {
             .ok_or(anyhow!("cannot get headers for response"))?;
         FileServer::append_headers(path, enc, etag, headers)?;
 
-        if etag == if_none_match {
-            return Ok(res.status(StatusCode::NOT_MODIFIED).body(None)?);
+        if body.is_some() {
+            if etag == if_none_match {
+                return Ok(res.status(StatusCode::NOT_MODIFIED).body(None)?);
+            }
+            Ok(res.status(StatusCode::OK).body(body)?)
+        } else {
+            not_found()
         }
-        Ok(res.status(StatusCode::OK).body(body)?)
     }
 
     fn get_etag(body: Option<Bytes>) -> String {
@@ -262,6 +275,26 @@ mod tests {
         };
         let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
         assert_eq!(rsp.status, 404);
+    }
+
+    #[test]
+    fn test_serve_file_not_found_with_fallback_path() {
+        //NOTE: this test must not run in parallel to other tests because of it's use of an environment variable
+        //      hence the `--test-threads=1` in the `make test` target
+        std::env::set_var(FALLBACK_PATH_ENV, "hello-test.txt");
+        let req = spin_http::Request {
+            method: spin_http::Method::Get,
+            uri: "http://thisistest.com".to_string(),
+            headers: vec![(
+                PATH_INFO_HEADER.to_string(),
+                "not-existent-file".to_string(),
+            )],
+            params: vec![],
+            body: None,
+        };
+        let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
+        std::env::remove_var(FALLBACK_PATH_ENV);
+        assert_eq!(rsp.status, 200);
     }
 
     #[test]

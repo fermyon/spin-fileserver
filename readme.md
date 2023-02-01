@@ -44,6 +44,22 @@ Currently, this file server has a single cache header that it can set through
 the `CACHE_CONTROL` environment variable. If no value is set, the default
 `max-age=60` is used instead for all media types.
 
+### Setting the fallback path
+
+You can configure a `FALLBACK_PATH` environment variable that points to a file that
+will be returned instead of the default 404 Not Found response. If no environment
+value is set, the default behavior is to return a 404 Not Found response. This behavior
+is useful for Single Page Applications that use view routers on the front-end like React and Vue.
+
+```toml
+# For more on configuring a component, see: https://spin.fermyon.dev/configuration/
+[[component]]
+source = "target/wasm32-wasi/release/spin_static_fs.wasm"
+id = "fs"
+files = [{ source = "test", destination = "/" }]
+environment = { FALLBACK_PATH = "index.html" }
+```
+
 ### Building from source and using
 
 Prerequisites:

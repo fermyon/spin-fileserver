@@ -12,4 +12,4 @@ lint:
 
 .PHONY: test-unit
 test-unit:
-	RUST_LOG=$(LOG_LEVEL) cargo test --target=$$(rustc -vV | sed -n 's|host: ||p')
+	RUST_LOG=$(LOG_LEVEL) cargo test --target=$$(rustc -vV | sed -n 's|host: ||p') -- --test-threads=1
