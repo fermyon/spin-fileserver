@@ -2,8 +2,8 @@ spin_version = "1"
 name = "spin-static-fs"
 version = "0.1.0"
 description = "A simple static server for Spin."
-authors = [ "Radu Matei <radu@fermyon.com>" ]
-trigger = {type = "http", base = "/" }
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+trigger = { type = "http", base = "/" }
 
 # For more on configuring a component, see: https://spin.fermyon.dev/configuration/
 [[component]]
