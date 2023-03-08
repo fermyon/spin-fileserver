@@ -88,15 +88,17 @@ fn serve(req: Request) -> Result<Response> {
         Ok(b) => Some(b),
         Err(e) => {
             // if the error is because the path points to a directory, attempt to read `index.html`
-            // from the directory. This is because most static file generators will generate this
+            // from the directory. This is because most static site generators will generate this
             // file structure (where `/about` should be mapped to `/about/index.html`).
             eprintln!("Cannot find file {path}. Attempting fallback.");
             // TODO: ideally, we would return better errors throughout the implementation.
-            if e.to_string().contains("Is a directory") {
-                let path = PathBuf::from(path).join(DIRECTORY_FALLBACK_PATH);
-                let path = path.to_str().context("cannot convert path to string")?;
-                eprintln!("Attempting fallback {path}");
-                FileServer::read(path, &enc).ok()
+            let directory_fallback = PathBuf::from(path).join(DIRECTORY_FALLBACK_PATH);
+            if e.to_string().contains("Is a directory") && directory_fallback.exists() {
+                let directory_fallback = directory_fallback
+                    .to_str()
+                    .context("cannot convert path to string")?;
+                eprintln!("Attempting directory fallback {directory_fallback}");
+                FileServer::read(directory_fallback, &enc).ok()
             } else {
                 match std::env::var(FALLBACK_PATH_ENV) {
                     // try to read the fallback path
