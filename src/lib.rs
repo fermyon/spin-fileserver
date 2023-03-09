@@ -10,6 +10,7 @@ use std::{
     fs::File,
     hash::{Hash, Hasher},
     io::Read,
+    path::PathBuf,
 };
 
 /// The default value for the cache control header.
@@ -27,6 +28,8 @@ const BROTLI_ENCODING: &str = "br";
 const PATH_INFO_HEADER: &str = "spin-path-info";
 // Environment variable for the fallback path
 const FALLBACK_PATH_ENV: &str = "FALLBACK_PATH";
+/// Directory fallback path (trying to map `/about/` -> `/about/index.html`).
+const DIRECTORY_FALLBACK_PATH: &str = "index.html";
 
 /// Common Content Encodings
 #[derive(Debug, Eq, PartialEq)]
@@ -83,15 +86,31 @@ fn serve(req: Request) -> Result<Response> {
     let body = match FileServer::read(path, &enc) {
         // requested file was found
         Ok(b) => Some(b),
-        Err(e) => match std::env::var(FALLBACK_PATH_ENV) {
-            // try to read the fallback path
-            Ok(fallback_path) => FileServer::read(fallback_path.as_str(), &enc).ok(),
-            // fallback path config not found
-            Err(_) => {
-                eprintln!("Cannot read file: {e:?}");
-                None
+        Err(e) => {
+            // if the error is because the path points to a directory, attempt to read `index.html`
+            // from the directory. This is because most static site generators will generate this
+            // file structure (where `/about` should be mapped to `/about/index.html`).
+            eprintln!("Cannot find file {path}. Attempting fallback.");
+            // TODO: ideally, we would return better errors throughout the implementation.
+            let directory_fallback = PathBuf::from(path).join(DIRECTORY_FALLBACK_PATH);
+            if e.to_string().contains("Is a directory") && directory_fallback.exists() {
+                let directory_fallback = directory_fallback
+                    .to_str()
+                    .context("cannot convert path to string")?;
+                eprintln!("Attempting directory fallback {directory_fallback}");
+                FileServer::read(directory_fallback, &enc).ok()
+            } else {
+                match std::env::var(FALLBACK_PATH_ENV) {
+                    // try to read the fallback path
+                    Ok(fallback_path) => FileServer::read(fallback_path.as_str(), &enc).ok(),
+                    // fallback path config not found
+                    Err(_) => {
+                        eprintln!("Cannot read file: {e:?}");
+                        None
+                    }
+                }
             }
-        },
+        }
     };
 
     let etag = FileServer::get_etag(body.clone());
