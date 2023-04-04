@@ -93,7 +93,9 @@ fn serve(req: Request) -> Result<Response> {
             eprintln!("Cannot find file {path}. Attempting fallback.");
             // TODO: ideally, we would return better errors throughout the implementation.
             let directory_fallback = PathBuf::from(path).join(DIRECTORY_FALLBACK_PATH);
-            if e.to_string().contains("Is a directory") && directory_fallback.exists() {
+            if (e.to_string().contains("Is a directory") || path.is_empty() || path.ends_with('/'))
+                && directory_fallback.exists()
+            {
                 let directory_fallback = directory_fallback
                     .to_str()
                     .context("cannot convert path to string")?;
