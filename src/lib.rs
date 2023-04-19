@@ -105,7 +105,7 @@ impl FileServer {
             path.push(DIRECTORY_FALLBACK_PATH);
         }
 
-        // still haven't found a file, override with the user-configured fallback path
+        // if still haven't found a file, override with the user-configured fallback path
         if !path.exists() {
             if let Ok(fallback_path) = std::env::var(FALLBACK_PATH_ENV) {
                 path = PathBuf::from(fallback_path);
