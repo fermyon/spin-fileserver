@@ -77,40 +77,11 @@ fn serve(req: Request) -> Result<Response> {
         .map(|h| h.to_str())
         .unwrap_or(Ok(""))?;
 
-    let path = match path {
-        "/" => "index.html",
-        _ => path,
-    };
-
-    // read from the fallback path if the variable exists
-    let body = match FileServer::read(path, &enc) {
-        // requested file was found
-        Ok(b) => Some(b),
-        Err(e) => {
-            // if the error is because the path points to a directory, attempt to read `index.html`
-            // from the directory. This is because most static site generators will generate this
-            // file structure (where `/about` should be mapped to `/about/index.html`).
-            eprintln!("Cannot find file {path}. Attempting fallback.");
-            // TODO: ideally, we would return better errors throughout the implementation.
-            let directory_fallback = PathBuf::from(path).join(DIRECTORY_FALLBACK_PATH);
-            if e.to_string().contains("Is a directory") && directory_fallback.exists() {
-                let directory_fallback = directory_fallback
-                    .to_str()
-                    .context("cannot convert path to string")?;
-                eprintln!("Attempting directory fallback {directory_fallback}");
-                FileServer::read(directory_fallback, &enc).ok()
-            } else {
-                match std::env::var(FALLBACK_PATH_ENV) {
-                    // try to read the fallback path
-                    Ok(fallback_path) => FileServer::read(fallback_path.as_str(), &enc).ok(),
-                    // fallback path config not found
-                    Err(_) => {
-                        eprintln!("Cannot read file: {e:?}");
-                        None
-                    }
-                }
-            }
-        }
+    // resolve the requested path and then try to read the file
+    // None should indicate that the file does not exist after attempting fallback paths
+    let body = match FileServer::resolve(path) {
+        Some(path) => FileServer::read(&path, &enc).ok(),
+        None => None,
     };
 
     let etag = FileServer::get_etag(body.clone());
@@ -119,9 +90,40 @@ fn serve(req: Request) -> Result<Response> {
 
 struct FileServer;
 impl FileServer {
+    /// Resolve the request path to a file path.
+    /// Returns `None` if the path does not exist.
+    fn resolve(req_path: &str) -> Option<PathBuf> {
+        // fallback to index.html if the path is empty
+        let mut path = if req_path.is_empty() {
+            PathBuf::from(DIRECTORY_FALLBACK_PATH)
+        } else {
+            PathBuf::from(req_path)
+        };
+
+        // if the path is a directory, try to read the fallback file relative to the directory
+        if path.is_dir() {
+            path.push(DIRECTORY_FALLBACK_PATH);
+        }
+
+        // if still haven't found a file, override with the user-configured fallback path
+        if !path.exists() {
+            if let Ok(fallback_path) = std::env::var(FALLBACK_PATH_ENV) {
+                path = PathBuf::from(fallback_path);
+            }
+        }
+
+        // return the path if it exists
+        if path.exists() {
+            Some(path)
+        } else {
+            None
+        }
+    }
+
     /// Open the file given its path and return its content and content type header.
-    fn read(path: &str, encoding: &ContentEncoding) -> Result<Bytes> {
-        let mut file = File::open(path).with_context(|| anyhow!("cannot open {}", path))?;
+    fn read(path: &PathBuf, encoding: &ContentEncoding) -> Result<Bytes> {
+        let mut file =
+            File::open(path).with_context(|| anyhow!("cannot open {}", path.display()))?;
         let mut buf = vec![];
         match encoding {
             ContentEncoding::Brotli => {
@@ -318,10 +320,22 @@ mod tests {
 
     #[test]
     fn test_serve_index() {
+        // Test against path with trailing slash
         let req = spin_http::Request {
             method: spin_http::Method::Get,
             uri: "http://thisistest.com".to_string(),
-            headers: vec![(PATH_INFO_HEADER.to_string(), "/".to_string())],
+            headers: vec![(PATH_INFO_HEADER.to_string(), "./".to_string())],
+            params: vec![],
+            body: None,
+        };
+        let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
+        assert_eq!(rsp.status, 200);
+
+        // Test against empty path
+        let req = spin_http::Request {
+            method: spin_http::Method::Get,
+            uri: "http://thisistest.com".to_string(),
+            headers: vec![(PATH_INFO_HEADER.to_string(), "".to_string())],
             params: vec![],
             body: None,
         };
