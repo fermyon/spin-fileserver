@@ -80,7 +80,7 @@ fn serve(req: Request) -> Result<Response> {
     // resolve the requested path and then try to read the file
     // None should indicate that the file does not exist after attempting fallback paths
     let body = match FileServer::resolve(path) {
-        Some(path) => FileServer::read(path.as_str(), &enc).ok(),
+        Some(path) => FileServer::read(&path, &enc).ok(),
         None => None,
     };
 
@@ -92,7 +92,7 @@ struct FileServer;
 impl FileServer {
     /// Resolve the request path to a file path.
     /// Returns `None` if the path does not exist.
-    fn resolve(req_path: &str) -> Option<String> {
+    fn resolve(req_path: &str) -> Option<PathBuf> {
         // fallback to index.html if the path is empty
         let mut path = if req_path.is_empty() {
             PathBuf::from(DIRECTORY_FALLBACK_PATH)
@@ -114,15 +114,16 @@ impl FileServer {
 
         // return the path if it exists
         if path.exists() {
-            Some(path.to_str().unwrap().to_string())
+            Some(path)
         } else {
             None
         }
     }
 
     /// Open the file given its path and return its content and content type header.
-    fn read(path: &str, encoding: &ContentEncoding) -> Result<Bytes> {
-        let mut file = File::open(path).with_context(|| anyhow!("cannot open {}", path))?;
+    fn read(path: &PathBuf, encoding: &ContentEncoding) -> Result<Bytes> {
+        let mut file =
+            File::open(path).with_context(|| anyhow!("cannot open {}", path.display()))?;
         let mut buf = vec![];
         match encoding {
             ContentEncoding::Brotli => {
