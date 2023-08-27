@@ -60,6 +60,19 @@ files = [{ source = "test", destination = "/" }]
 environment = { FALLBACK_PATH = "index.html" }
 ```
 
+### Using a custom 404 document
+
+You can configure a `CUSTOM_404_PATH` environment variable that points to a file that will be served instead of returning a plain 404 Not Found response. If the `CUSTOM_404_PATH` environment variable is not set or points to a non-existing file, the default 404 Not Found response is returned.
+
+```toml
+# For more on configuring a component, see: https://spin.fermyon.dev/configuration/
+[[component]]
+source = "target/wasm32-wasi/release/spin_static_fs.wasm"
+id = "fs"
+files = [{ source = "test", destination = "/" }]
+environment = { CUSTOM_404_PATH = "custom-404.html" }
+```
+
 ### Building from source and using
 
 Prerequisites:

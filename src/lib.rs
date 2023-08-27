@@ -28,6 +28,8 @@ const BROTLI_ENCODING: &str = "br";
 const PATH_INFO_HEADER: &str = "spin-path-info";
 // Environment variable for the fallback path
 const FALLBACK_PATH_ENV: &str = "FALLBACK_PATH";
+/// Environment variable for the custom 404 path
+const CUSTOM_404_PATH_ENV: &str = "CUSTOM_404_PATH";
 /// Directory fallback path (trying to map `/about/` -> `/about/index.html`).
 const DIRECTORY_FALLBACK_PATH: &str = "index.html";
 
@@ -112,7 +114,16 @@ impl FileServer {
             }
         }
 
-        // return the path if it exists
+        if path.exists() {
+            return Some(path);
+        }
+
+        // check if user configured a custom 404 path
+        // if so, check if that path exists and return it instead of sending a plain 404
+        if let Ok(custom_404) = std::env::var(CUSTOM_404_PATH_ENV) {
+            path = PathBuf::from(custom_404);
+        }
+
         if path.exists() {
             Some(path)
         } else {
@@ -198,6 +209,8 @@ impl FileServer {
 
 #[cfg(test)]
 mod tests {
+    use std::{fs, path::Path};
+
     use http::header::{ACCEPT_ENCODING, IF_NONE_MATCH};
 
     use super::*;
@@ -296,6 +309,55 @@ mod tests {
         };
         let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
         assert_eq!(rsp.status, 404);
+    }
+
+    #[test]
+    fn test_serve_custom_404() {
+        // reuse existing asset as custom 404 doc
+        let custom_404_path = "hello-test.txt";
+        let expected_status = 200;
+        let expected_body =
+            fs::read(Path::new(custom_404_path)).expect("Could not read custom 404 file");
+
+        std::env::set_var(CUSTOM_404_PATH_ENV, custom_404_path);
+
+        let req = spin_http::Request {
+            method: spin_http::Method::Get,
+            uri: "http://thisistest.com".to_string(),
+            headers: vec![(
+                PATH_INFO_HEADER.to_string(),
+                "not-existent-file".to_string(),
+            )],
+            params: vec![],
+            body: None,
+        };
+        let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
+        std::env::remove_var(CUSTOM_404_PATH_ENV);
+        assert_eq!(rsp.status, expected_status);
+        assert_eq!(rsp.body, expected_body.into());
+    }
+
+    #[test]
+    fn test_serve_non_existing_custom_404() {
+        // provide a invalid path
+        let custom_404_path = "non-existing-404.html";
+        let expected_status = 404;
+
+        std::env::set_var(CUSTOM_404_PATH_ENV, custom_404_path);
+
+        let req = spin_http::Request {
+            method: spin_http::Method::Get,
+            uri: "http://thisistest.com".to_string(),
+            headers: vec![(
+                PATH_INFO_HEADER.to_string(),
+                "not-existent-file".to_string(),
+            )],
+            params: vec![],
+            body: None,
+        };
+        let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
+        std::env::remove_var(CUSTOM_404_PATH_ENV);
+        assert_eq!(rsp.status, expected_status);
     }
 
     #[test]
