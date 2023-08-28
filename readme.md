@@ -52,7 +52,7 @@ value is set, the default behavior is to return a 404 Not Found response. This b
 is useful for Single Page Applications that use view routers on the front-end like React and Vue.
 
 ```toml
-# For more on configuring a component, see: https://spin.fermyon.dev/configuration/
+# For more on configuring a component, see: https://developer.fermyon.com/spin/writing-apps#adding-environment-variables-to-components
 [[component]]
 source = "target/wasm32-wasi/release/spin_static_fs.wasm"
 id = "fs"
@@ -62,15 +62,15 @@ environment = { FALLBACK_PATH = "index.html" }
 
 ### Using a custom 404 document
 
-You can configure a `CUSTOM_404_PATH` environment variable that points to a file that will be served instead of returning a plain 404 Not Found response. If the `CUSTOM_404_PATH` environment variable is not set or points to a non-existing file, the default 404 Not Found response is returned.
+You can configure a `CUSTOM_404_PATH` environment variable and point to a file that will be served instead of returning a plain 404 Not Found response. Consider the following sample where the `spin-fileserver` component is configured to serve all files from the `test` folder. The desired page must exist in the `test` folder to send a custom 404 HTML page (here, `404.html`) instead of a plain 404 Not Found response.
 
 ```toml
-# For more on configuring a component, see: https://spin.fermyon.dev/configuration/
+# For more on configuring a component, see: https://developer.fermyon.com/spin/writing-apps#adding-environment-variables-to-components
 [[component]]
 source = "target/wasm32-wasi/release/spin_static_fs.wasm"
 id = "fs"
 files = [{ source = "test", destination = "/" }]
-environment = { CUSTOM_404_PATH = "custom-404.html" }
+environment = { CUSTOM_404_PATH = "404.html" }
 ```
 
 ### Building from source and using
