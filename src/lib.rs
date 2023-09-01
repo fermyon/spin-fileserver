@@ -126,9 +126,9 @@ trait IsFavicon {
 
 impl IsFavicon for PathBuf {
     fn is_favicon(&self) -> bool {
-        match self.clone().into_os_string().into_string() {
-            Ok(s) => s == FAVICON_ICO_FILENAME || s == FAVICON_PNG_FILENAME,
-            Err(_) => false,
+        match self.clone().file_name() {
+            Some(s) => s == FAVICON_ICO_FILENAME || s == FAVICON_PNG_FILENAME,
+            None => false,
         }
     }
 }
@@ -469,7 +469,10 @@ mod tests {
         let req = spin_http::Request {
             method: spin_http::Method::Get,
             uri: "http://thisistest.com/".to_string(),
-            headers: vec![(PATH_INFO_HEADER.to_string(), "favicon.png".to_string())],
+            headers: vec![(
+                PATH_INFO_HEADER.to_string(),
+                FAVICON_PNG_FILENAME.to_string(),
+            )],
             params: vec![],
             body: None,
         };
