@@ -38,7 +38,7 @@ const FAVICON_ICO_FILENAME: &str = "favicon.ico";
 const FAVICON_PNG_FILENAME: &str = "favicon.png";
 // Fallback favicon.png that is used when user does not supply a custom one
 const FALLBACK_FAVICON_PNG: &[u8] = include_bytes!("../spin-favicon.png");
-// Fallback favicon.ico that is used when user does not a custom one
+// Fallback favicon.ico that is used when user does not supply a custom one
 const FALLBACK_FAVICON_ICO: &[u8] = include_bytes!("../spin-favicon.ico");
 /// Common Content Encodings
 #[derive(Debug, Eq, PartialEq)]
