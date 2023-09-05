@@ -73,6 +73,12 @@ files = [{ source = "test", destination = "/" }]
 environment = { CUSTOM_404_PATH = "404.html" }
 ```
 
+### Fallback favicon
+
+If you haven't specified a favicon in your HTML document, `spin-fileserver` will serve the [Spin logo](./spin-favicon.png) as the fallback favicon. The `spin-fileserver` also serves the fallback favicon if the file (called `favicon.ico` or `favicon.png`) specified in your `<link rel="shortcut icon" ...>` element does not exist.
+
+Remember that there are situations where `spin-fileserver` cannot serve the fallback favicon if no `<link rel="shortcut icon" ...>` element is specified. Browsers try to find the favicon in the root directory of the origin (`somedomain.com/favicon.ico`). If the application doesn't listen for requests targeting that route, it can't intercept requests to non-existing favicons.
+
 ### Building from source and using
 
 Prerequisites:

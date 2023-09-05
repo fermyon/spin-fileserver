@@ -32,7 +32,14 @@ const FALLBACK_PATH_ENV: &str = "FALLBACK_PATH";
 const CUSTOM_404_PATH_ENV: &str = "CUSTOM_404_PATH";
 /// Directory fallback path (trying to map `/about/` -> `/about/index.html`).
 const DIRECTORY_FALLBACK_PATH: &str = "index.html";
-
+// FAVICON_ICO_FILENAME
+const FAVICON_ICO_FILENAME: &str = "favicon.ico";
+// FAVICON_PNG_FILENAME
+const FAVICON_PNG_FILENAME: &str = "favicon.png";
+// Fallback favicon.png that is used when user does not supply a custom one
+const FALLBACK_FAVICON_PNG: &[u8] = include_bytes!("../spin-favicon.png");
+// Fallback favicon.ico that is used when user does not supply a custom one
+const FALLBACK_FAVICON_ICO: &[u8] = include_bytes!("../spin-favicon.ico");
 /// Common Content Encodings
 #[derive(Debug, Eq, PartialEq)]
 pub enum ContentEncoding {
@@ -82,19 +89,55 @@ fn serve(req: Request) -> Result<Response> {
     // resolve the requested path and then try to read the file
     // None should indicate that the file does not exist after attempting fallback paths
     let body = match FileServer::resolve(path) {
-        Some(path) => FileServer::read(&path, &enc).ok(),
-        None => None,
+        FileServerPath::Physical(path) => FileServer::read(&path, &enc).ok(),
+        FileServerPath::Embedded(resource) => ResourceServer::read(resource, &enc),
+        FileServerPath::None => None,
     };
-
     let etag = FileServer::get_etag(body.clone());
     FileServer::send(body, path, enc, &etag, if_none_match)
+}
+
+struct ResourceServer {}
+
+impl ResourceServer {
+    fn read(resource: &'static [u8], encoding: &ContentEncoding) -> Option<Bytes> {
+        match encoding {
+            ContentEncoding::Brotli => {
+                let mut r = brotli::CompressorReader::new(resource, 4096, BROTLI_LEVEL, 20);
+                let mut buf = vec![];
+                r.read_to_end(&mut buf).ok()?;
+                Some(buf.into())
+            }
+            _ => Some(resource.into()),
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum FileServerPath {
+    Physical(PathBuf),
+    Embedded(&'static [u8]),
+    None,
+}
+
+trait IsFavicon {
+    fn is_favicon(&self) -> bool;
+}
+
+impl IsFavicon for PathBuf {
+    fn is_favicon(&self) -> bool {
+        match self.clone().file_name() {
+            Some(s) => s == FAVICON_ICO_FILENAME || s == FAVICON_PNG_FILENAME,
+            None => false,
+        }
+    }
 }
 
 struct FileServer;
 impl FileServer {
     /// Resolve the request path to a file path.
-    /// Returns `None` if the path does not exist.
-    fn resolve(req_path: &str) -> Option<PathBuf> {
+    /// Returns a `FileServerPath` variant.
+    fn resolve(req_path: &str) -> FileServerPath {
         // fallback to index.html if the path is empty
         let mut path = if req_path.is_empty() {
             PathBuf::from(DIRECTORY_FALLBACK_PATH)
@@ -107,6 +150,17 @@ impl FileServer {
             path.push(DIRECTORY_FALLBACK_PATH);
         }
 
+        // if path doesn't exist and a favicon is requested, return with corresponding embedded resource
+        if !path.exists() && path.is_favicon() {
+            return match path.extension() {
+                Some(os_string) => match os_string.to_str() {
+                    Some("ico") => FileServerPath::Embedded(FALLBACK_FAVICON_ICO),
+                    Some("png") => FileServerPath::Embedded(FALLBACK_FAVICON_PNG),
+                    _ => FileServerPath::None,
+                },
+                None => FileServerPath::None,
+            };
+        }
         // if still haven't found a file, override with the user-configured fallback path
         if !path.exists() {
             if let Ok(fallback_path) = std::env::var(FALLBACK_PATH_ENV) {
@@ -115,7 +169,7 @@ impl FileServer {
         }
 
         if path.exists() {
-            return Some(path);
+            return FileServerPath::Physical(path);
         }
 
         // check if user configured a custom 404 path
@@ -125,9 +179,9 @@ impl FileServer {
         }
 
         if path.exists() {
-            Some(path)
+            FileServerPath::Physical(path)
         } else {
-            None
+            FileServerPath::None
         }
     }
 
@@ -149,8 +203,13 @@ impl FileServer {
 
     /// Return the media type of the file based on the path.
     fn mime(uri: &str) -> Option<String> {
-        let guess = mime_guess::from_path(uri);
-        guess.first().map(|m| m.to_string())
+        match uri {
+            FAVICON_ICO_FILENAME => mime_guess::from_ext("ico"),
+            FAVICON_PNG_FILENAME => mime_guess::from_ext("png"),
+            _ => mime_guess::from_path(uri),
+        }
+        .first()
+        .map(|m| m.to_string())
     }
 
     fn append_headers(
@@ -403,5 +462,23 @@ mod tests {
         };
         let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
         assert_eq!(rsp.status, 200);
+    }
+
+    #[test]
+    fn test_serve_fallback_favicon() {
+        let req = spin_http::Request {
+            method: spin_http::Method::Get,
+            uri: "http://thisistest.com/".to_string(),
+            headers: vec![(
+                PATH_INFO_HEADER.to_string(),
+                FAVICON_PNG_FILENAME.to_string(),
+            )],
+            params: vec![],
+            body: None,
+        };
+        let rsp = <super::SpinHttp as spin_http::SpinHttp>::handle_http_request(req);
+
+        assert_eq!(rsp.status, StatusCode::OK);
+        assert_eq!(rsp.body.unwrap(), FALLBACK_FAVICON_PNG);
     }
 }
