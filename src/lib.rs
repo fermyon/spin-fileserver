@@ -105,7 +105,7 @@ async fn handle_request(req: IncomingRequest, res_out: ResponseOutparam) {
         Ok((status, headers, reader)) => {
             let res = OutgoingResponse::new(status.into(), &Fields::new(&headers));
             let mut body = res.take_body();
-            ResponseOutparam::set(res_out, Ok(res));
+            res_out.set(res);
             if let Some(mut reader) = reader {
                 let mut buffer = vec![0_u8; BUFFER_SIZE];
                 loop {
@@ -129,7 +129,7 @@ async fn handle_request(req: IncomingRequest, res_out: ResponseOutparam) {
             eprintln!("Error building response: {e}");
             let res = OutgoingResponse::new(500, &Fields::new(&[]));
             let body = res.write().expect("response should be writable");
-            ResponseOutparam::set(res_out, Ok(res));
+            res_out.set(res);
             OutgoingBody::finish(body, None);
         }
     }
