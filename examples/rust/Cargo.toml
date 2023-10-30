@@ -1,0 +1,19 @@
+[package]
+name = "spin-fileserver-example"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.component]
+package = "component:spin-fileserver-example"
+adapter = "../../adapters/fd1e948d/wasi_snapshot_preview1.reactor.wasm"
+
+[dependencies]
+cargo-component-bindings = "0.4.0"
+wit-bindgen = "0.13.0"
+spin-sdk = { git = "https://github.com/fermyon/spin" }
+futures = "0.3.28"
+
+[workspace]

@@ -7,7 +7,12 @@ authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 [lib]
 crate-type = ["cdylib"]
 
+[package.metadata.component]
+package = "component:spin-fileserver-example"
+adapter = "adapters/fd1e948d/wasi_snapshot_preview1.reactor.wasm"
+
 [dependencies]
+cargo-component-bindings = "0.4.0"
 # Helpful crate to manage errors.
 anyhow = "1.0"
 # Brotli compression makes big things less big
