@@ -1,4 +1,4 @@
-# spin-fileserver-example (Rust)
+# spin-fileserver-example (Python)
 
 This is an example of using [component
 composition](https://component-model.bytecodealliance.org/creating-and-consuming/composing.html)
@@ -8,19 +8,23 @@ component for serving static files.
 
 ## Prerequisites
 
-- [Rust](https://rustup.rs/), including the `wasm32-wasi` target
+- [Rust](https://rustup.rs/)
 - [cargo-component](https://github.com/bytecodealliance/cargo-component)
 - [wasm-tools](https://github.com/bytecodealliance/wasm-tools/)
   - Note that you'll need [this fork](https://github.com/dicej/wasm-tools/tree/wasm-compose-resource-imports) until [this PR](https://github.com/bytecodealliance/wasm-tools/pull/1261) has been merged and released.
+- [Python](https://www.python.org/downloads/) 3.11 or later
+- [pip](https://pip.pypa.io/en/stable/installation/)
+- [componentize-py](https://pypi.org/project/componentize-py/) 0.6.0
 - [curl](https://curl.se/download.html) or a web browser for testing
   
-Once you have Rust installed, the following should give you everything else:
+Once you have Rust, Python, and pip installed, the following should give you everything else:
 
 ```shell
 rustup target add wasm32-wasi
 cargo install cargo-component
 cargo install --locked --git https://github.com/dicej/wasm-tools \
     --branch wasm-compose-resource-imports wasm-tools
+pip install componentize-py==0.6.0
 ```
 
 ## Building and Running

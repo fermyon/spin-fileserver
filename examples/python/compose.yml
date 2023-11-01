@@ -1,0 +1,7 @@
+search-paths:
+  - ../../target/wasm32-wasi/release
+
+instantiations:
+  $input:
+    arguments:
+      wasi:http/incoming-handler@0.2.0-rc-2023-10-18: spin_static_fs
