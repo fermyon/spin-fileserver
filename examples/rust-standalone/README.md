@@ -1,8 +1,8 @@
-# Rust fileserver example (classic)
+# Rust fileserver example (standalone)
 
 This is an example of using [spin-fileserver](https://github.com/fermyon/spin-fileserver)
 as a separate component in a Spin application. In other words, this example demonstrates
-the "classic" use of this component as opposed to the composition approaches demonstrated
+standalone use of this component as opposed to the composition approaches demonstrated
 in the [rust](../rust), [javascript](../javascript/) and [pythong](../python/) examples.
 
 ## Prerequisites

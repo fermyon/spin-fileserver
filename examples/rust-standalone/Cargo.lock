@@ -174,16 +174,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "http-rust"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "http",
- "serde",
- "spin-sdk",
-]
-
-[[package]]
 name = "id-arena"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -277,6 +267,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust-standalone"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "http",
+ "spin-sdk",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -366,7 +365,7 @@ dependencies = [
 [[package]]
 name = "spin-macro"
 version = "0.1.0"
-source = "git+https://github.com/fermyon/spin#9f477b161e741f99b967085ae36854aed9fe897e"
+source = "git+https://github.com/fermyon/spin?tag=v2.0.0-rc.1#2cb5b1fe27b16b860f4b66184d47b77b27bc1dee"
 dependencies = [
  "anyhow",
  "bytes",
@@ -378,8 +377,8 @@ dependencies = [
 
 [[package]]
 name = "spin-sdk"
-version = "2.0.0-pre0"
-source = "git+https://github.com/fermyon/spin#9f477b161e741f99b967085ae36854aed9fe897e"
+version = "2.0.0-rc.1"
+source = "git+https://github.com/fermyon/spin?tag=v2.0.0-rc.1#2cb5b1fe27b16b860f4b66184d47b77b27bc1dee"
 dependencies = [
  "anyhow",
  "async-trait",

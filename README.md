@@ -3,6 +3,11 @@
 A simple static file server as a [Spin](https://github.com/fermyon/spin) HTTP
 component, written in Rust.
 
+This component is now fully [componentized](https://component-model.bytecodealliance.org/) and
+can be used with any runtime that supports `wasi:http@0.2.0-rc-2023-10-18`, such as
+[Spin 2.0](https://developer.fermyon.com/spin/install), [wasmtime](https://github.com/bytecodealliance/wasmtime)
+and [NGINX Unit](https://unit.nginx.org/).
+
 - [Building from source](#building-from-source)
 - [Testing](#testing)
 - [Using the component](#using-the-component-as-part-of-a-spin-application)
@@ -10,10 +15,7 @@ component, written in Rust.
   - [Composing with the file server](#component-composition-with-the-file-server)
 - [Configuration options](#configuration-options)
 
-### Building from source
-
-This component is now fully componentized and can be used anywhere [WebAssembly Components](https://component-model.bytecodealliance.org/)
-are supported.
+## Building from source
 
 Prerequisites:
 
@@ -29,7 +31,7 @@ $ cargo component build --release
 
 See the [examples](./examples) directory for examples of using and composing `spin-fileserver` with applications.
 
-### Testing
+## Testing
 
 Prerequisites:
 
@@ -43,12 +45,35 @@ Running test cases:
 $ make test
 ```
 
-### Using the component as part of a Spin application
+## Using the component as part of a Spin application
 
-Below we'll look at running the file server directly as well as using component
+The easiest way to use this the Spin fileserver component in your application
+is to add it via its Spin template.
+
+To create a new Spin app based on this component, run:
+
+```shell
+$ spin new -t static-fileserver
+```
+
+To add this component to your existing Spin app, run:
+
+```shell
+$ spin add -t static-fileserver
+```
+
+If you're looking to upgrade the version of this component in your application from one
+of the [releases](https://github.com/fermyon/spin-fileserver/releases), select the release
+and corresponding checksum and update the component's `source` in the application's `spin.toml`, e.g.:
+
+```toml
+source = { url = "https://github.com/fermyon/spin-fileserver/releases/download/v0.1.0/spin_static_fs.wasm", digest = "sha256:96c76d9af86420b39eb6cd7be5550e3cb5d4cc4de572ce0fd1f6a29471536cb4" }
+```
+
+Next, we'll look at running the file server directly as well as using component
 composition to integrate this component in with your application logic.
 
-#### Running the file server
+### Running the file server
 
 Let's have a look at the component definition (from [spin.toml](./spin.toml)):
 
@@ -88,10 +113,10 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 ...
 ```
 
-See also the [rust-classic example](./examples/rust-classic/) showing use of the file server
+See also the [rust-standalone example](./examples/rust-standalone/) showing use of the file server
 alongside a simple Rust-based application.
 
-#### Component composition with the file server
+### Component composition with the file server
 
 The file server can also be composed with application logic to form one binary that can be run
 as a Spin application. See the following examples using the language and toolchains of your choice:
@@ -100,17 +125,17 @@ as a Spin application. See the following examples using the language and toolcha
 - [Javascript](./examples/javascript)
 - [Python](./examples/python)
 
-### Configuration options
+## Configuration options
 
 The Spin fileserver supports various configuration options.
 
-#### Setting the cache header
+### Setting the cache header
 
 Currently, this file server has a single cache header that it can set through
 the `CACHE_CONTROL` environment variable. If no value is set, the default
 `max-age=60` is used instead for all media types.
 
-#### Setting the fallback path
+### Setting the fallback path
 
 You can configure a `FALLBACK_PATH` environment variable that points to a file that
 will be returned instead of the default 404 Not Found response. If no environment
@@ -125,7 +150,7 @@ files = [{ source = "test", destination = "/" }]
 environment = { FALLBACK_PATH = "index.html" }
 ```
 
-#### Using a custom 404 document
+### Using a custom 404 document
 
 You can configure a `CUSTOM_404_PATH` environment variable and point to a file that will be served instead of returning a plain 404 Not Found response. Consider the following sample where the `spin-fileserver` component is configured to serve all files from the `test` folder. The desired page must exist in the `test` folder to send a custom 404 HTML page (here, `404.html`) instead of a plain 404 Not Found response.
 
@@ -137,7 +162,7 @@ files = [{ source = "test", destination = "/" }]
 environment = { CUSTOM_404_PATH = "404.html" }
 ```
 
-#### Fallback favicon
+### Fallback favicon
 
 If you haven't specified a favicon in your HTML document, `spin-fileserver` will serve the [Spin logo](./spin-favicon.png) as the fallback favicon. The `spin-fileserver` also serves the fallback favicon if the file (called `favicon.ico` or `favicon.png`) specified in your `<link rel="shortcut icon" ...>` element does not exist.
 
