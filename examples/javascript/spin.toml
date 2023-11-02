@@ -2,7 +2,7 @@ spin_manifest_version = 2
 
 [application]
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
-description = "Python spin-fileserver composition example"
+description = "JavaScript spin-fileserver composition example"
 name = "spin-fileserver-example"
 version = "1.0.0"
 
@@ -14,5 +14,5 @@ component = "spin-fileserver-example"
 source = "composed.wasm"
 files = [{ source = "../static", destination = "/" }]
 [component.spin-fileserver-example.build]
-command = "componentize-py -d ../wit -w proxy componentize app -o http.wasm && (cd .. && cargo component build --release) && RUST_LOG=error wasm-tools compose http.wasm -c compose.yml -o composed.wasm"
-watch = ["*.py"]
+command = "node build.mjs && (cd .. && cargo component build --release) && RUST_LOG=error wasm-tools compose http.wasm -c compose.yml -o composed.wasm"
+watch = ["*.js"]

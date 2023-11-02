@@ -14,7 +14,7 @@ from poll_loop import Stream, Sink, PollLoop
 class IncomingHandler(exports.IncomingHandler):
     def handle(self, request: IncomingRequest, response_out: ResponseOutparam):
         # Dispatch the request using `asyncio`, backed by a custom event loop
-        # based on WASI's `poll_oneoff` function.
+        # based on `wasi:io/poll#poll-list`.
         loop = PollLoop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(handle_async(request, response_out))
