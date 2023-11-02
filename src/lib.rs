@@ -295,22 +295,21 @@ impl FileServer {
         let path = str::from_utf8(path)?;
         let reader = Self::resolve_and_read(path, enc).transpose()?;
         let etag = Self::make_etag(reader)?;
-        let reader = Self::resolve_and_read(path, enc).transpose()?;
+        let mut reader = Self::resolve_and_read(path, enc).transpose()?;
         let headers = Self::make_headers(path, enc, &etag);
 
-        Ok((
-            if reader.is_some() {
-                if etag.as_bytes() == if_none_match {
-                    StatusCode::NOT_MODIFIED
-                } else {
-                    StatusCode::OK
-                }
+        let status = if reader.is_some() {
+            if etag.as_bytes() == if_none_match {
+                reader = None;
+                StatusCode::NOT_MODIFIED
             } else {
-                StatusCode::NOT_FOUND
-            },
-            headers,
-            reader,
-        ))
+                StatusCode::OK
+            }
+        } else {
+            StatusCode::NOT_FOUND
+        };
+
+        Ok((status, headers, reader))
     }
 
     fn make_etag(body: Option<Box<dyn Read>>) -> Result<String> {
@@ -399,22 +398,24 @@ mod tests {
     fn test_serve_with_etag() {
         let _lock = TEST_MUTEX.lock().unwrap();
 
-        let (status, ..) = FileServer::make_response(
+        let (status, _, reader) = FileServer::make_response(
             b"./hello-test.txt",
             ContentEncoding::None,
             b"4dca0fd5f424a31b03ab807cbae77eb32bf2d089eed1cee154b3afed458de0dc",
         )
         .unwrap();
         assert_eq!(status, StatusCode::NOT_MODIFIED);
+        assert!(reader.is_none());
     }
 
     #[test]
     fn test_serve_file_not_found() {
         let _lock = TEST_MUTEX.lock().unwrap();
 
-        let (status, ..) =
+        let (status, _, reader) =
             FileServer::make_response(b"non-exisitent-file", ContentEncoding::None, b"").unwrap();
         assert_eq!(status, StatusCode::NOT_FOUND);
+        assert!(reader.is_none());
     }
 
     #[test]
@@ -451,9 +452,10 @@ mod tests {
             std::env::remove_var(CUSTOM_404_PATH_ENV);
         }
 
-        let (status, ..) =
+        let (status, _, reader) =
             FileServer::make_response(b"non-exisitent-file", ContentEncoding::None, b"").unwrap();
         assert_eq!(status, StatusCode::NOT_FOUND);
+        assert!(reader.is_none());
     }
 
     #[test]

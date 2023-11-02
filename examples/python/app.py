@@ -1,5 +1,4 @@
 import asyncio
-import hashlib
 import poll_loop
 
 from proxy import exports
