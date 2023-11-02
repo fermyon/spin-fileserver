@@ -1,0 +1,29 @@
+spin_manifest_version = 2
+
+[application]
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+name = "rust-fileserver-classic"
+description = "An example Rust application using spin-fileserver"
+version = "1.0.0"
+
+[[trigger.http]]
+route = "/..."
+component = "fs"
+
+[[trigger.http]]
+route = "/hello"
+component = "hello"
+
+[component.fs]
+source = "../../target/wasm32-wasi/release/spin_static_fs.wasm"
+description = "A fileserver component to serve static assets"
+files = [{ source = "../static", destination = "/" }]
+[component.fs.build]
+command = "cd .. && cargo build --release"
+
+[component.hello]
+source = "target/wasm32-wasi/release/http_rust.wasm"
+description = "A simple component that returns hello."
+[component.hello.build]
+command = "cargo build --target wasm32-wasi --release"
+watch = ["src/**/*.rs", "Cargo.toml"]

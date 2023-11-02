@@ -1,16 +1,18 @@
-spin_manifest_version = "1"
+spin_manifest_version = 2
+
+[application]
 name = "spin-static-fs"
 version = "0.1.0"
 description = "A simple static server for Spin."
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
-trigger = { type = "http", base = "/" }
 
-# For more on configuring a component, see: https://spin.fermyon.dev/configuration/
-[[component]]
-source = "target/wasm32-wasi/release/spin_static_fs.wasm"
-id = "fs"
-files = [{ source = "", destination = "/" }]
-[component.trigger]
+[[trigger.http]]
 route = "/..."
-[component.build]
+component = "fs"
+
+# For more on configuring a component, see: https://developer.fermyon.com/spin/writing-apps
+[component.fs]
+source = "target/wasm32-wasi/release/spin_static_fs.wasm"
+files = [{ source = "", destination = "/" }]
+[component.fs.build]
 command = "make"
