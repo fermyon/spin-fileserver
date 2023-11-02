@@ -1,26 +1,34 @@
 [package]
 name = "spin-static-fs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 
 [lib]
 crate-type = ["cdylib"]
 
+[package.metadata.component]
+package = "component:spin-fileserver-example"
+adapter = "adapters/fd1e948d/wasi_snapshot_preview1.reactor.wasm"
+
 [dependencies]
+cargo-component-bindings = "0.4.0"
 # Helpful crate to manage errors.
 anyhow = "1.0"
-# Crate to simplify working with bytes.
-bytes = "1.0"
 # Brotli compression makes big things less big
 brotli = "3.3"
+flate2 = "1.0.28"
+futures = "0.3.28"
+hex = "0.4.3"
 # HTTP crate helpful for the header keys.
 http = "0.2"
 # Helper to guess the media type based on the file extension.
 mime_guess = "2.0"
+sha2 = "0.10.8"
 # The Spin SDK.
-spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v0.6.0" }
-# The wit-bindgen-rust dependency generates bindings for interfaces.
-wit-bindgen-rust = { git = "https://github.com/bytecodealliance/wit-bindgen", rev = "cb871cfa1ee460b51eb1d144b175b9aab9c50aba" }
+spin-sdk = { git = "https://github.com/fermyon/spin" }
 
 [workspace]
+
+[dev-dependencies]
+scopeguard = "1.2.0"

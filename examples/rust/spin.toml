@@ -1,0 +1,18 @@
+spin_manifest_version = 2
+
+[application]
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "Rust spin-fileserver composition example"
+name = "spin-fileserver-example"
+version = "1.0.0"
+
+[[trigger.http]]
+route = "/..."
+component = "spin-fileserver-example"
+
+[component.spin-fileserver-example]
+source = "target/wasm32-wasi/release/composed.wasm"
+files = [{ source = "../static", destination = "/" }]
+[component.spin-fileserver-example.build]
+command = "cargo component build --release && (cd .. && cargo component build --release) && RUST_LOG=error wasm-tools compose target/wasm32-wasi/release/spin_fileserver_example.wasm -c compose.yml -o target/wasm32-wasi/release/composed.wasm"
+watch = ["src/**/*.rs", "Cargo.toml"]

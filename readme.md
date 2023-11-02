@@ -83,23 +83,24 @@ Remember that there are situations where `spin-fileserver` cannot serve the fall
 
 Prerequisites:
 
-- [Rust](https://www.rust-lang.org/) at
-  [1.56+](https://www.rust-lang.org/tools/install) with the `wasm32-wasi` target
-  configured
-- [Spin v0.1](https://github.com/fermyon/spin)
+- [Rust](https://www.rust-lang.org/) at [1.72+](https://www.rust-lang.org/tools/install) with the `wasm32-wasi` target configured
+- [cargo-component](https://github.com/bytecodealliance/cargo-component)
+- [Spin v2.0](https://github.com/fermyon/spin)
 
 Compiling the component:
 
 ```shell
-$ cargo build --release
+$ cargo component build --release
 ```
+
+See the [examples](./examples) directory for examples of composing `spin-fileserver` with applications.
 
 ### Testing
 
 Prerequisites:
 
 - [Rust](https://www.rust-lang.org/) at
-  [1.56+](https://www.rust-lang.org/tools/install) with the `wasm32-wasi` target
+  [1.72+](https://www.rust-lang.org/tools/install) with the `wasm32-wasi` target
   configured
 
 Running test cases:
