@@ -8,6 +8,7 @@ component for serving static files.
 
 ## Prerequisites
 
+- [Spin v2.0+](https://developer.fermyon.com/spin/install)
 - [Rust](https://rustup.rs/)
 - [cargo-component](https://github.com/bytecodealliance/cargo-component)
 - [wasm-tools](https://github.com/bytecodealliance/wasm-tools/)
