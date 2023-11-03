@@ -4,10 +4,7 @@ import poll_loop
 from proxy import exports
 from proxy.types import Ok
 from proxy.imports import types, incoming_handler
-from proxy.imports.types import (
-    MethodGet, MethodPost, Scheme, SchemeHttp, SchemeHttps, SchemeOther, IncomingRequest, ResponseOutparam,
-    OutgoingResponse, Fields, OutgoingBody, OutgoingRequest
-)
+from proxy.imports.types import MethodGet, IncomingRequest, ResponseOutparam, OutgoingResponse, Fields, OutgoingBody
 from poll_loop import Stream, Sink, PollLoop
 
 class IncomingHandler(exports.IncomingHandler):
