@@ -19,7 +19,8 @@ source = "../../target/wasm32-wasi/release/spin_static_fs.wasm"
 description = "A fileserver component to serve static assets"
 files = [{ source = "../static", destination = "/" }]
 [component.fs.build]
-command = "cd .. && cargo build --release"
+workdir = "../../"
+command = "cargo build --release"
 
 [component.hello]
 source = "target/wasm32-wasi/release/http_rust.wasm"
