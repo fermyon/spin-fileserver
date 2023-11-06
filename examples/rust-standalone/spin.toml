@@ -23,7 +23,7 @@ workdir = "../../"
 command = "cargo build --release"
 
 [component.hello]
-source = "target/wasm32-wasi/release/http_rust.wasm"
+source = "target/wasm32-wasi/release/rust_standalone.wasm"
 description = "A simple component that returns hello."
 [component.hello.build]
 command = "cargo build --target wasm32-wasi --release"
