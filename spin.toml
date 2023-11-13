@@ -2,7 +2,7 @@ spin_manifest_version = 2
 
 [application]
 name = "spin-static-fs"
-version = "0.1.0"
+version = "0.2.0"
 description = "A simple static server for Spin."
 authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 
