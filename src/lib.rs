@@ -4,7 +4,7 @@ use http::{
     header::{ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE, ETAG, IF_NONE_MATCH},
     HeaderName, StatusCode,
 };
-use spin_sdk::http::{Fields, IncomingRequest, OutgoingBody, OutgoingResponse, ResponseOutparam};
+use spin_sdk::http::{Fields, IncomingRequest, OutgoingResponse, ResponseOutparam};
 use std::{
     fs::File,
     io::{Cursor, Read},
@@ -128,9 +128,11 @@ async fn handle_request(req: IncomingRequest, res_out: ResponseOutparam) {
         Err(e) => {
             eprintln!("Error building response: {e}");
             let res = OutgoingResponse::new(500, &Fields::new(&[]));
-            let body = res.write().expect("response should be writable");
+            let mut body = res.take_body();
             res_out.set(res);
-            OutgoingBody::finish(body, None);
+            if let Err(e) = body.send(b"Internal Server Error".to_vec()).await {
+                eprintln!("Error sending body: {e}");
+            }
         }
     }
 }
@@ -296,7 +298,7 @@ impl FileServer {
         let reader = Self::resolve_and_read(path, enc).transpose()?;
         let etag = Self::make_etag(reader)?;
         let mut reader = Self::resolve_and_read(path, enc).transpose()?;
-        let headers = Self::make_headers(path, enc, &etag);
+        let mut headers = Self::make_headers(path, enc, &etag);
 
         let status = if reader.is_some() {
             if etag.as_bytes() == if_none_match {
@@ -306,6 +308,8 @@ impl FileServer {
                 StatusCode::OK
             }
         } else {
+            reader = Some(Box::new(Cursor::new(b"Not Found")));
+            headers = Vec::new();
             StatusCode::NOT_FOUND
         };
 
@@ -415,7 +419,9 @@ mod tests {
         let (status, _, reader) =
             FileServer::make_response(b"non-exisitent-file", ContentEncoding::None, b"").unwrap();
         assert_eq!(status, StatusCode::NOT_FOUND);
-        assert!(reader.is_none());
+        let mut actual_body = Vec::new();
+        reader.unwrap().read_to_end(&mut actual_body).unwrap();
+        assert_eq!(actual_body.as_slice(), b"Not Found");
     }
 
     #[test]
@@ -455,7 +461,9 @@ mod tests {
         let (status, _, reader) =
             FileServer::make_response(b"non-exisitent-file", ContentEncoding::None, b"").unwrap();
         assert_eq!(status, StatusCode::NOT_FOUND);
-        assert!(reader.is_none());
+        let mut actual_body = Vec::new();
+        reader.unwrap().read_to_end(&mut actual_body).unwrap();
+        assert_eq!(actual_body.as_slice(), b"Not Found");
     }
 
     #[test]
