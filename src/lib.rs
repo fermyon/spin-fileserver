@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use futures::SinkExt;
 use http::{
     header::{ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE, ETAG, IF_NONE_MATCH},
-    HeaderName, StatusCode,
+    HeaderName, StatusCode,Uri,
 };
 use spin_sdk::http::{Fields, IncomingRequest, OutgoingResponse, ResponseOutparam};
 use std::{
@@ -29,6 +29,8 @@ const GZIP_ENCODING: &str = "gzip";
 const DEFLATE_ENCODING: &str = "deflate";
 /// The path info header.
 const PATH_INFO_HEADER: &str = "spin-path-info";
+/// The component route header
+const COMPONENT_ROUTE_HEADER: &str = "spin-component-route";
 // Environment variable for the fallback path
 const FALLBACK_PATH_ENV: &str = "FALLBACK_PATH";
 /// Environment variable for the custom 404 path
@@ -88,11 +90,20 @@ impl ContentEncoding {
 async fn handle_request(req: IncomingRequest, res_out: ResponseOutparam) {
     let headers = req.headers().entries();
     let enc = ContentEncoding::best_encoding(&headers);
-
-    let path = headers
+    let mut path = headers
         .iter()
         .find_map(|(k, v)| (k.to_lowercase() == PATH_INFO_HEADER).then_some(v))
         .expect("PATH_INFO header must be set by the Spin runtime");
+
+    let component_route = headers
+        .iter()
+        .find_map(|(k, v)| (k.to_lowercase() == COMPONENT_ROUTE_HEADER).then_some(v))
+        .expect("COMPONENT_ROUTE header must be set by the Spin runtime");
+
+    let uri = req.uri().parse::<Uri>().expect("URI is invalid").path().as_bytes().to_vec();
+    if &uri == component_route && path.is_empty(){
+        path = &uri; 
+    }
 
     let if_none_match = headers
         .iter()
@@ -100,7 +111,6 @@ async fn handle_request(req: IncomingRequest, res_out: ResponseOutparam) {
             (HeaderName::from_bytes(k.as_bytes()).ok()? == IF_NONE_MATCH).then_some(v.as_slice())
         })
         .unwrap_or(b"");
-
     match FileServer::make_response(path, enc, if_none_match) {
         Ok((status, headers, reader)) => {
             let res = OutgoingResponse::new(status.into(), &Fields::new(&headers));
