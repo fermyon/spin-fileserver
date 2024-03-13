@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use futures::SinkExt;
 use http::{
     header::{ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE, ETAG, IF_NONE_MATCH},
-    HeaderName, StatusCode,Uri,
+    HeaderName, StatusCode, Uri,
 };
 use spin_sdk::http::{Fields, IncomingRequest, OutgoingResponse, ResponseOutparam};
 use std::{
@@ -100,9 +100,15 @@ async fn handle_request(req: IncomingRequest, res_out: ResponseOutparam) {
         .find_map(|(k, v)| (k.to_lowercase() == COMPONENT_ROUTE_HEADER).then_some(v))
         .expect("COMPONENT_ROUTE header must be set by the Spin runtime");
 
-    let uri = req.uri().parse::<Uri>().expect("URI is invalid").path().as_bytes().to_vec();
-    if &uri == component_route && path.is_empty(){
-        path = &uri; 
+    let uri = req
+        .uri()
+        .parse::<Uri>()
+        .expect("URI is invalid")
+        .path()
+        .as_bytes()
+        .to_vec();
+    if &uri == component_route && path.is_empty() {
+        path = &uri;
     }
 
     let if_none_match = headers
