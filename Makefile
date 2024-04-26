@@ -13,3 +13,7 @@ lint:
 .PHONY: test-unit
 test-unit:
 	RUST_LOG=$(LOG_LEVEL) cargo test --target=$$(rustc -vV | sed -n 's|host: ||p')
+
+.PHONY: spin-test
+spin-test:
+	RUST_LOG=$(LOG_LEVEL) spin test

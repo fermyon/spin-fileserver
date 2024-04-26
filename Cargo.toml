@@ -26,9 +26,10 @@ http = "0.2"
 mime_guess = "2.0"
 sha2 = "0.10.8"
 # The Spin SDK.
-spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v2.0.1" }
+spin-sdk = "3.0"
 
 [workspace]
+members = ["tests"]
 
 [dev-dependencies]
 scopeguard = "1.2.0"

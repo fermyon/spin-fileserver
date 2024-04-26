@@ -1,0 +1,12 @@
+[package]
+name = "tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+spin-test-sdk = { git = "https://github.com/fermyon/spin-test" }
+sha2 = "0.10.8"
+hex = "0.4.3"
+
+[lib]
+crate-type = ["cdylib"]

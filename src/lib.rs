@@ -119,7 +119,12 @@ async fn handle_request(req: IncomingRequest, res_out: ResponseOutparam) {
         .unwrap_or(b"");
     match FileServer::make_response(path, enc, if_none_match) {
         Ok((status, headers, reader)) => {
-            let res = OutgoingResponse::new(status.into(), &Fields::new(&headers));
+            let fields = Fields::new();
+            for (name, value) in headers {
+                let _ = fields.append(&name, &value);
+            }
+            let res = OutgoingResponse::new(fields);
+            let _ = res.set_status_code(status.as_u16());
             let mut body = res.take_body();
             res_out.set(res);
             if let Some(mut reader) = reader {
@@ -143,7 +148,8 @@ async fn handle_request(req: IncomingRequest, res_out: ResponseOutparam) {
         }
         Err(e) => {
             eprintln!("Error building response: {e}");
-            let res = OutgoingResponse::new(500, &Fields::new(&[]));
+            let res = OutgoingResponse::new(Fields::new());
+            let _ = res.set_status_code(500);
             let mut body = res.take_body();
             res_out.set(res);
             if let Err(e) = body.send(b"Internal Server Error".to_vec()).await {
