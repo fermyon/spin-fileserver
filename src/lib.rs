@@ -6,10 +6,14 @@ use http::{
 };
 use spin_sdk::http::{Fields, IncomingRequest, OutgoingResponse, ResponseOutparam};
 use std::{
+    cmp::Ordering,
+    fmt,
+    fmt::Error,
     fs::File,
     io::{Cursor, Read},
     path::PathBuf,
     str,
+    str::FromStr,
 };
 
 /// The default value for the cache control header.
@@ -49,47 +53,166 @@ const FALLBACK_FAVICON_ICO: &[u8] = include_bytes!("../spin-favicon.ico");
 const BUFFER_SIZE: usize = 64 * 1024;
 const DEFLATE_LEVEL: flate2::Compression = flate2::Compression::fast();
 
+#[derive(PartialEq)]
+struct ContentEncoding {
+    // We limit expressed encodings to ones that we support
+    encoding: SupportedEncoding,
+    weight: Option<f32>,
+}
+
+impl fmt::Display for ContentEncoding {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.encoding)?;
+
+        if let Some(weight) = self.weight {
+            write!(f, ";q={weight}")?;
+        }
+
+        Ok(())
+    }
+}
+
+impl PartialEq<SupportedEncoding> for ContentEncoding {
+    fn eq(&self, other: &SupportedEncoding) -> bool {
+        self.encoding == *other
+    }
+}
+
+impl PartialEq<SupportedEncoding> for &ContentEncoding {
+    fn eq(&self, other: &SupportedEncoding) -> bool {
+        self.encoding == *other
+    }
+}
+
+impl PartialOrd for ContentEncoding {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let aweight = self.weight.unwrap_or(1.0);
+        let bweight = other.weight.unwrap_or(1.0);
+        match aweight.partial_cmp(&bweight) {
+            Some(Ordering::Equal) => match (self.encoding, other.encoding) {
+                // Always prefer brotli
+                (SupportedEncoding::Brotli, _) => Some(Ordering::Greater),
+                (_, SupportedEncoding::Brotli) => Some(Ordering::Less),
+                // Otherwise prefer the more specific option
+                (SupportedEncoding::None, _) => Some(Ordering::Less),
+                (_, SupportedEncoding::None) => Some(Ordering::Greater),
+                // Everything else is roughly equal
+                (_, _) => Some(Ordering::Equal),
+            },
+            v => v,
+        }
+    }
+}
+
+impl FromStr for ContentEncoding {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parts = s.split(';');
+        let encoding = parts.next().unwrap().trim();
+        let encoding =
+            SupportedEncoding::from_str(encoding).context("failed to parse encoding type")?;
+        let Some(weight) = parts
+            .next()
+            .map(|s| s.trim())
+            .and_then(|s| s.strip_prefix("q="))
+        else {
+            return Ok(ContentEncoding {
+                encoding,
+                weight: None,
+            });
+        };
+
+        let mut weight: f32 = weight
+            .trim()
+            .parse()
+            .context("failed to parse encoding weight")?;
+        weight = weight.clamp(0.0, 1.0);
+
+        Ok(ContentEncoding {
+            encoding,
+            weight: Some(weight),
+        })
+    }
+}
+
 /// Common Content Encodings
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
-pub enum ContentEncoding {
+pub enum SupportedEncoding {
     Brotli,
     Deflate,
     Gzip,
     None,
 }
 
-impl ContentEncoding {
-    /// Return the best ContentEncoding
-    fn best_encoding(headers: &[(String, Vec<u8>)]) -> Self {
-        let encodings = [
-            (BROTLI_ENCODING, ContentEncoding::Brotli),
-            (DEFLATE_ENCODING, ContentEncoding::Deflate),
-            (GZIP_ENCODING, ContentEncoding::Gzip),
-        ];
+impl fmt::Display for SupportedEncoding {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let header_content = match self {
+            Self::Brotli => BROTLI_ENCODING,
+            Self::Deflate => DEFLATE_ENCODING,
+            Self::Gzip => GZIP_ENCODING,
+            Self::None => "<none>",
+        };
 
-        headers
+        write!(f, "{}", header_content)?;
+        Ok(())
+    }
+}
+
+impl FromStr for SupportedEncoding {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            BROTLI_ENCODING => Ok(Self::Brotli),
+            DEFLATE_ENCODING => Ok(Self::Deflate),
+            GZIP_ENCODING => Ok(Self::Gzip),
+            _ => Ok(Self::None),
+        }
+    }
+}
+
+impl SupportedEncoding {
+    /// Return the best SupportedEncoding
+    fn best_encoding(headers: &[(String, Vec<u8>)]) -> Self {
+        let mut accepted_encodings: Vec<ContentEncoding> = headers
             .iter()
-            .find_map(|(k, v)| {
-                (HeaderName::from_bytes(k.as_bytes()).ok()? == ACCEPT_ENCODING)
-                    .then_some(v)
-                    .and_then(|v| {
-                        str::from_utf8(v).ok().and_then(|v| {
-                            encodings.iter().find_map(|(name, encoding)| {
-                                v.split(',').find_map(|v| {
-                                    (v.trim().to_lowercase() == *name).then_some(*encoding)
-                                })
-                            })
+            .filter(|(k, _)| HeaderName::from_bytes(k.as_bytes()).ok() == Some(ACCEPT_ENCODING))
+            .flat_map(|(_, v)| {
+                str::from_utf8(v).ok().map(|v| {
+                    v.split(',')
+                        .map(|v| ContentEncoding::from_str(v).ok())
+                        .filter(|v| match v {
+                            Some(y) => match y.encoding {
+                                // Filter out "None" values to ensure some compression is
+                                // preferred. This is mostly to be defensive to types we don't
+                                // understand as we only parse encodings we support.
+                                // It's probably subpar if somebody actually _doesn't_ want
+                                // compression but supports it anyway.
+                                SupportedEncoding::None => false,
+                                _ => true,
+                            },
+                            None => false,
                         })
-                    })
+                        .flatten()
+                })
             })
-            .unwrap_or(ContentEncoding::None)
+            .flatten()
+            .collect();
+
+        accepted_encodings.sort_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
+
+        accepted_encodings
+            .first()
+            .map(|v| v.encoding)
+            .unwrap_or(SupportedEncoding::None)
     }
 }
 
 #[spin_sdk::http_component]
 async fn handle_request(req: IncomingRequest, res_out: ResponseOutparam) {
     let headers = req.headers().entries();
-    let enc = ContentEncoding::best_encoding(&headers);
+    let enc = SupportedEncoding::best_encoding(&headers);
     let mut path = headers
         .iter()
         .find_map(|(k, v)| (k.to_lowercase() == PATH_INFO_HEADER).then_some(v))
@@ -177,7 +300,7 @@ struct FileServer;
 impl FileServer {
     /// Resolve the requested path and then try to read the file.
     /// None should indicate that the file does not exist after attempting fallback paths.
-    fn resolve_and_read(path: &str, encoding: ContentEncoding) -> Option<Result<Box<dyn Read>>> {
+    fn resolve_and_read(path: &str, encoding: SupportedEncoding) -> Option<Result<Box<dyn Read>>> {
         let reader = match Self::resolve(path) {
             FileServerPath::Physical(path) => {
                 Some(Self::read(&path).map(|r| Box::new(r) as Box<dyn Read>))
@@ -189,17 +312,19 @@ impl FileServer {
         }?;
 
         Some(reader.map(|reader| match encoding {
-            ContentEncoding::Brotli => Box::new(brotli::CompressorReader::new(
+            SupportedEncoding::Brotli => Box::new(brotli::CompressorReader::new(
                 reader,
                 BUFFER_SIZE,
                 BROTLI_LEVEL,
                 20,
             )) as Box<dyn Read>,
-            ContentEncoding::Deflate => {
+            SupportedEncoding::Deflate => {
                 Box::new(flate2::read::DeflateEncoder::new(reader, DEFLATE_LEVEL))
             }
-            ContentEncoding::Gzip => Box::new(flate2::read::GzEncoder::new(reader, DEFLATE_LEVEL)),
-            ContentEncoding::None => reader,
+            SupportedEncoding::Gzip => {
+                Box::new(flate2::read::GzEncoder::new(reader, DEFLATE_LEVEL))
+            }
+            SupportedEncoding::None => reader,
         }))
     }
 
@@ -269,7 +394,7 @@ impl FileServer {
         .map(|m| m.to_string())
     }
 
-    fn make_headers(path: &str, enc: ContentEncoding, etag: &str) -> Vec<(String, Vec<u8>)> {
+    fn make_headers(path: &str, enc: SupportedEncoding, etag: &str) -> Vec<(String, Vec<u8>)> {
         let mut headers = Vec::new();
         let cache_control = match std::env::var(CACHE_CONTROL_ENV) {
             Ok(c) => c,
@@ -282,19 +407,19 @@ impl FileServer {
         headers.push((ETAG.as_str().to_string(), etag.as_bytes().to_vec()));
 
         match enc {
-            ContentEncoding::Brotli => headers.push((
+            SupportedEncoding::Brotli => headers.push((
                 CONTENT_ENCODING.as_str().to_string(),
                 BROTLI_ENCODING.as_bytes().to_vec(),
             )),
-            ContentEncoding::Deflate => headers.push((
+            SupportedEncoding::Deflate => headers.push((
                 CONTENT_ENCODING.as_str().to_string(),
                 DEFLATE_ENCODING.as_bytes().to_vec(),
             )),
-            ContentEncoding::Gzip => headers.push((
+            SupportedEncoding::Gzip => headers.push((
                 CONTENT_ENCODING.as_str().to_string(),
                 GZIP_ENCODING.as_bytes().to_vec(),
             )),
-            ContentEncoding::None => {}
+            SupportedEncoding::None => {}
         }
 
         if let Some(mime) = Self::mime(path) {
@@ -307,7 +432,7 @@ impl FileServer {
     #[allow(clippy::type_complexity)]
     fn make_response(
         path: &[u8],
-        enc: ContentEncoding,
+        enc: SupportedEncoding,
         if_none_match: &[u8],
     ) -> Result<(StatusCode, Vec<(String, Vec<u8>)>, Option<Box<dyn Read>>)> {
         let path = str::from_utf8(path)?;
@@ -357,70 +482,74 @@ mod tests {
     use scopeguard::defer;
     use std::{fs, path::Path, sync::Mutex};
 
-    static TEST_MUTEX: Mutex<()> = Mutex::new(());
+    static TEST_ENV_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_best_encoding_none() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-
-        let enc = ContentEncoding::best_encoding(&[]);
-        assert_eq!(enc, ContentEncoding::None);
+        let enc = SupportedEncoding::best_encoding(&[]);
+        assert_eq!(enc, SupportedEncoding::None);
     }
 
     #[test]
     fn test_best_encoding_with_unknown() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-
-        let enc = ContentEncoding::best_encoding(&[(
+        let enc = SupportedEncoding::best_encoding(&[(
             ACCEPT_ENCODING.to_string(),
             b"some-weird-encoding".to_vec(),
         )]);
-        assert_eq!(enc, ContentEncoding::None);
+        assert_eq!(enc, SupportedEncoding::None);
+    }
+
+    #[test]
+    fn test_best_encoding_with_weights() {
+        let enc = SupportedEncoding::best_encoding(&[(
+            ACCEPT_ENCODING.to_string(),
+            b"gzip;br;q=0.1".to_vec(),
+        )]);
+        assert_eq!(enc, SupportedEncoding::Gzip);
+    }
+
+    #[test]
+    fn test_best_encoding_with_multiple_headers() {
+        let enc = SupportedEncoding::best_encoding(&[
+            (ACCEPT_ENCODING.to_string(), b"gzip".to_vec()),
+            (ACCEPT_ENCODING.to_string(), b"br".to_vec()),
+        ]);
+        assert_eq!(enc, SupportedEncoding::Brotli);
     }
 
     #[test]
     fn test_best_encoding_with_gzip() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-
         let enc =
-            ContentEncoding::best_encoding(&[(ACCEPT_ENCODING.to_string(), b"gzip".to_vec())]);
-        assert_eq!(enc, ContentEncoding::Gzip);
+            SupportedEncoding::best_encoding(&[(ACCEPT_ENCODING.to_string(), b"gzip".to_vec())]);
+        assert_eq!(enc, SupportedEncoding::Gzip);
     }
 
     #[test]
     fn test_best_encoding_with_deflate() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-
         let enc =
-            ContentEncoding::best_encoding(&[(ACCEPT_ENCODING.to_string(), b"deflate".to_vec())]);
-        assert_eq!(enc, ContentEncoding::Deflate);
+            SupportedEncoding::best_encoding(&[(ACCEPT_ENCODING.to_string(), b"deflate".to_vec())]);
+        assert_eq!(enc, SupportedEncoding::Deflate);
     }
 
     #[test]
     fn test_best_encoding_with_br() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-
         let enc =
-            ContentEncoding::best_encoding(&[(ACCEPT_ENCODING.to_string(), b"gzip,br".to_vec())]);
-        assert_eq!(enc, ContentEncoding::Brotli);
+            SupportedEncoding::best_encoding(&[(ACCEPT_ENCODING.to_string(), b"gzip,br".to_vec())]);
+        assert_eq!(enc, SupportedEncoding::Brotli);
     }
 
     #[test]
     fn test_serve_file_found() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-
         let (status, ..) =
-            FileServer::make_response(b"./hello-test.txt", ContentEncoding::None, b"").unwrap();
+            FileServer::make_response(b"./hello-test.txt", SupportedEncoding::None, b"").unwrap();
         assert_eq!(status, StatusCode::OK);
     }
 
     #[test]
     fn test_serve_with_etag() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-
         let (status, _, reader) = FileServer::make_response(
             b"./hello-test.txt",
-            ContentEncoding::None,
+            SupportedEncoding::None,
             b"4dca0fd5f424a31b03ab807cbae77eb32bf2d089eed1cee154b3afed458de0dc",
         )
         .unwrap();
@@ -430,10 +559,8 @@ mod tests {
 
     #[test]
     fn test_serve_file_not_found() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-
         let (status, _, reader) =
-            FileServer::make_response(b"non-exisitent-file", ContentEncoding::None, b"").unwrap();
+            FileServer::make_response(b"non-exisitent-file", SupportedEncoding::None, b"").unwrap();
         assert_eq!(status, StatusCode::NOT_FOUND);
         let mut actual_body = Vec::new();
         reader.unwrap().read_to_end(&mut actual_body).unwrap();
@@ -442,7 +569,7 @@ mod tests {
 
     #[test]
     fn test_serve_custom_404() {
-        let _lock = TEST_MUTEX.lock().unwrap();
+        let _lock = TEST_ENV_MUTEX.lock().unwrap();
 
         // reuse existing asset as custom 404 doc
         let custom_404_path = "hello-test.txt";
@@ -455,7 +582,7 @@ mod tests {
         }
 
         let (status, _, reader) =
-            FileServer::make_response(b"non-exisitent-file", ContentEncoding::None, b"").unwrap();
+            FileServer::make_response(b"non-exisitent-file", SupportedEncoding::None, b"").unwrap();
         assert_eq!(status, StatusCode::OK);
         let mut actual_body = Vec::new();
         reader.unwrap().read_to_end(&mut actual_body).unwrap();
@@ -464,7 +591,7 @@ mod tests {
 
     #[test]
     fn test_serve_non_existing_custom_404() {
-        let _lock = TEST_MUTEX.lock().unwrap();
+        let _lock = TEST_ENV_MUTEX.lock().unwrap();
 
         // provide a invalid path
         let custom_404_path = "non-existing-404.html";
@@ -475,7 +602,7 @@ mod tests {
         }
 
         let (status, _, reader) =
-            FileServer::make_response(b"non-exisitent-file", ContentEncoding::None, b"").unwrap();
+            FileServer::make_response(b"non-exisitent-file", SupportedEncoding::None, b"").unwrap();
         assert_eq!(status, StatusCode::NOT_FOUND);
         let mut actual_body = Vec::new();
         reader.unwrap().read_to_end(&mut actual_body).unwrap();
@@ -484,7 +611,7 @@ mod tests {
 
     #[test]
     fn test_serve_file_not_found_with_fallback_path() {
-        let _lock = TEST_MUTEX.lock().unwrap();
+        let _lock = TEST_ENV_MUTEX.lock().unwrap();
 
         // reuse existing asset as fallback
         let fallback_path = "hello-test.txt";
@@ -497,7 +624,7 @@ mod tests {
         }
 
         let (status, _, reader) =
-            FileServer::make_response(b"non-exisitent-file", ContentEncoding::None, b"").unwrap();
+            FileServer::make_response(b"non-exisitent-file", SupportedEncoding::None, b"").unwrap();
         assert_eq!(status, StatusCode::OK);
         let mut actual_body = Vec::new();
         reader.unwrap().read_to_end(&mut actual_body).unwrap();
@@ -506,24 +633,23 @@ mod tests {
 
     #[test]
     fn test_serve_index() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-
         // Test against path with trailing slash
-        let (status, ..) = FileServer::make_response(b"./", ContentEncoding::None, b"").unwrap();
+        let (status, ..) = FileServer::make_response(b"./", SupportedEncoding::None, b"").unwrap();
         assert_eq!(status, StatusCode::OK);
 
         // Test against empty path
-        let (status, ..) = FileServer::make_response(b"", ContentEncoding::None, b"").unwrap();
+        let (status, ..) = FileServer::make_response(b"", SupportedEncoding::None, b"").unwrap();
         assert_eq!(status, StatusCode::OK);
     }
 
     #[test]
     fn test_serve_fallback_favicon() {
-        let _lock = TEST_MUTEX.lock().unwrap();
-
-        let (status, _, reader) =
-            FileServer::make_response(FAVICON_PNG_FILENAME.as_bytes(), ContentEncoding::None, b"")
-                .unwrap();
+        let (status, _, reader) = FileServer::make_response(
+            FAVICON_PNG_FILENAME.as_bytes(),
+            SupportedEncoding::None,
+            b"",
+        )
+        .unwrap();
         assert_eq!(status, StatusCode::OK);
         let mut actual_body = Vec::new();
         reader.unwrap().read_to_end(&mut actual_body).unwrap();
