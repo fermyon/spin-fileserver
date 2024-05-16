@@ -14,5 +14,11 @@ component = "fs"
 [component.fs]
 source = "target/wasm32-wasi/release/spin_static_fs.wasm"
 files = [{ source = "", destination = "/" }]
+exclude_files = ["target/**/*"]
 [component.fs.build]
 command = "make"
+
+[component.fs.tool.spin-test]
+source = "target/wasm32-wasi/release/tests.wasm"
+build = "cargo component build --release"
+workdir = "tests"
