@@ -53,7 +53,7 @@ const FALLBACK_FAVICON_ICO: &[u8] = include_bytes!("../spin-favicon.ico");
 const BUFFER_SIZE: usize = 64 * 1024;
 const DEFLATE_LEVEL: flate2::Compression = flate2::Compression::fast();
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 struct ContentEncoding {
     // We limit expressed encodings to ones that we support
     encoding: SupportedEncoding,
@@ -179,25 +179,18 @@ impl SupportedEncoding {
             .iter()
             .filter(|(k, _)| HeaderName::from_bytes(k.as_bytes()).ok() == Some(ACCEPT_ENCODING))
             .flat_map(|(_, v)| {
-                str::from_utf8(v).ok().map(|v| {
-                    v.split(',')
-                        .map(|v| ContentEncoding::from_str(v).ok())
-                        .filter(|v| match v {
-                            Some(y) => match y.encoding {
-                                // Filter out "None" values to ensure some compression is
-                                // preferred. This is mostly to be defensive to types we don't
-                                // understand as we only parse encodings we support.
-                                // It's probably subpar if somebody actually _doesn't_ want
-                                // compression but supports it anyway.
-                                SupportedEncoding::None => false,
-                                _ => true,
-                            },
-                            None => false,
-                        })
-                        .flatten()
+                str::from_utf8(v).ok().into_iter().flat_map(|v| {
+                    v.split(',').filter_map(|v| {
+                        let e = ContentEncoding::from_str(v).ok()?;
+                        // Filter out "None" values to ensure some compression is
+                        // preferred. This is mostly to be defensive to types we don't
+                        // understand as we only parse encodings we support.
+                        // It's probably subpar if somebody actually _doesn't_ want
+                        // compression but supports it anyway.
+                        (e.encoding != SupportedEncoding::None).then_some(e)
+                    })
                 })
             })
-            .flatten()
             .collect();
 
         accepted_encodings.sort_by(|a, b| b.partial_cmp(a).unwrap_or(Ordering::Equal));
