@@ -104,3 +104,28 @@ fn prefers_brotoli_encoding() {
         vec![String::from("br").into_bytes()]
     );
 }
+
+#[spin_test]
+fn prefers_brotoli_encoding_multi_header() {
+    let headers = http::types::Headers::new();
+    headers
+        .append(
+            &String::from("accept-encoding"),
+            &String::from("deflate,gzip").into_bytes(),
+        )
+        .unwrap();
+    headers
+        .append(
+            &String::from("accept-encoding"),
+            &String::from("br").into_bytes(),
+        )
+        .unwrap();
+    let request = http::types::OutgoingRequest::new(headers);
+    request.set_path_with_query(Some("/README.md")).unwrap();
+    let response = spin_test_sdk::perform_request(request);
+    assert_eq!(response.status(), 200);
+    assert_eq!(
+        response.headers().get(&"content-encoding".into()),
+        vec![String::from("br").into_bytes()]
+    );
+}
