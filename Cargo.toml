@@ -8,21 +8,23 @@ authors = ["Fermyon Engineering <engineering@fermyon.com>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-cargo-component-bindings = "0.4.1"
 # Helpful crate to manage errors.
 anyhow = "1.0"
 # Brotli compression makes big things less big
 brotli = "3.5"
+bytes = "1.11.1"
 flate2 = "1.1.5"
 futures = "0.3.31"
 hex = "0.4.3"
 # HTTP crate helpful for the header keys.
 http = "1.3.1"
+http-body = "1.0.1"
+http-body-util = "0.1.3"
 # Helper to guess the media type based on the file extension.
 mime_guess = "2.0"
 sha2 = "0.10.9"
 # The Spin SDK.
-spin-sdk = "5.1.1"
+spin-sdk = { version = "6", default-features = false, features = ["http"] }
 
 [workspace]
 members = ["tests"]

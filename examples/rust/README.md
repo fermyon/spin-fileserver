@@ -9,16 +9,14 @@ component for serving static files.
 ## Prerequisites
 
 - [Spin v2.0+](https://developer.fermyon.com/spin/install)
-- [Rust](https://rustup.rs/), including the `wasm32-wasip1` target
-- [cargo-component](https://github.com/bytecodealliance/cargo-component)
+- [Rust](https://rustup.rs/), including the `wasm32-wasip2` target
 - [wac](https://github.com/bytecodealliance/wac)
 - [curl](https://curl.se/download.html) or a web browser for testing
   
 Once you have Rust installed, the following should give you everything else:
 
 ```shell
-rustup target add wasm32-wasip1
-cargo install cargo-component
+rustup target add wasm32-wasip2
 cargo install wac-cli
 ```
 

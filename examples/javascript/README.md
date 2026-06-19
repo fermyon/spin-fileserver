@@ -19,7 +19,7 @@ component for serving static files.
 Once you have Rust and NodeJS installed, the following should give you everything else:
 
 ```shell
-rustup target add wasm32-wasip1
+rustup target add wasm32-wasip2
 cargo install cargo-component
 cargo install wac-cli
 npm install -g @bytecodealliance/jco @bytecodealliance/componentize-js

@@ -15,7 +15,7 @@ route = "/hello"
 component = "hello"
 
 [component.fs]
-source = "../../target/wasm32-wasip1/release/spin_static_fs.wasm"
+source = "../../target/wasm32-wasip2/release/spin_static_fs.wasm"
 description = "A fileserver component to serve static assets"
 files = [{ source = "../static", destination = "/" }]
 [component.fs.build]
@@ -23,8 +23,8 @@ workdir = "../../"
 command = "cargo build --release"
 
 [component.hello]
-source = "target/wasm32-wasip1/release/rust_standalone.wasm"
+source = "target/wasm32-wasip2/release/rust_standalone.wasm"
 description = "A simple component that returns hello."
 [component.hello.build]
-command = "cargo build --target wasm32-wasip1 --release"
+command = "cargo build --target wasm32-wasip2 --release"
 watch = ["src/**/*.rs", "Cargo.toml"]

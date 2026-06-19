@@ -14,5 +14,5 @@ component = "spin-fileserver-example"
 source = "composed.wasm"
 files = [{ source = "../static", destination = "/" }]
 [component.spin-fileserver-example.build]
-command = "npm install && node build.mjs && (cd .. && cargo component build --release) && RUST_LOG=error wac plug --plug ../../target/wasm32-wasip1/release/spin_static_fs.wasm  http.wasm -o composed.wasm"
+command = "npm install && node build.mjs && (cd .. && cargo component build --release) && RUST_LOG=error wac plug --plug ../../target/wasm32-wasip2/release/spin_static_fs.wasm  http.wasm -o composed.wasm"
 watch = ["*.js"]

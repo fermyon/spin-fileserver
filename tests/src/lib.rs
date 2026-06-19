@@ -72,7 +72,7 @@ fn fetches_file() {
     let response = spin_test_sdk::perform_request(request);
     assert_eq!(response.status(), 200);
     assert_eq!(
-        response.headers().get(&"etag".into()),
+        response.headers().get("etag"),
         vec![hex_encoded_sha256(&readme)]
     );
     let body = response.body_as_string().unwrap();
@@ -100,7 +100,7 @@ fn prefers_brotoli_encoding() {
     let response = spin_test_sdk::perform_request(request);
     assert_eq!(response.status(), 200);
     assert_eq!(
-        response.headers().get(&"content-encoding".into()),
+        response.headers().get("content-encoding"),
         vec![String::from("br").into_bytes()]
     );
 }
@@ -125,7 +125,7 @@ fn prefers_brotoli_encoding_multi_header() {
     let response = spin_test_sdk::perform_request(request);
     assert_eq!(response.status(), 200);
     assert_eq!(
-        response.headers().get(&"content-encoding".into()),
+        response.headers().get("content-encoding"),
         vec![String::from("br").into_bytes()]
     );
 }

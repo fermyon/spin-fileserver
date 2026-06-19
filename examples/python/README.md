@@ -20,7 +20,7 @@ component for serving static files.
 Once you have Rust, Python, and pip installed, the following should give you everything else:
 
 ```shell
-rustup target add wasm32-wasip1
+rustup target add wasm32-wasip2
 cargo install cargo-component
 cargo install wac-cli
 pip install componentize-py=0.13.5
