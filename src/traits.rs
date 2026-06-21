@@ -9,6 +9,8 @@ impl<T: Read + Seek> ReadSeek for T {}
 // Extension methods
 
 pub trait HeaderStrings {
+    /// Gets the single value of a header as a string. If the header has multiple values,
+    /// it returns the first one.
     fn get_str(&self, key: impl AsHeaderName) -> Option<&str>;
 }
 

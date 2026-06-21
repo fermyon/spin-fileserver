@@ -1,4 +1,3 @@
-use super::traits::HeaderStrings;
 use super::BUFFER_SIZE;
 use anyhow::{Context, Result};
 use http::header::ACCEPT_ENCODING;
@@ -146,13 +145,18 @@ impl FromStr for SupportedEncoding {
 impl SupportedEncoding {
     /// Return the best SupportedEncoding
     pub fn best_encoding(headers: &HeaderMap) -> Self {
-        let Some(accept_encoding_header) = headers.get_str(ACCEPT_ENCODING) else {
-            return Self::None;
-        };
+        let header_vals = headers
+            .get_all(ACCEPT_ENCODING)
+            .iter()
+            .filter_map(|v| v.to_str().ok())
+            .collect::<Vec<_>>();
 
-        let header_vals = accept_encoding_header.split(',');
+        if header_vals.is_empty() {
+            return Self::None;
+        }
 
         let mut accepted_encodings: Vec<ContentEncoding> = header_vals
+            .into_iter()
             .filter_map(|v| {
                 let e = ContentEncoding::from_str(v).ok()?;
                 // Filter out "None" values to ensure some compression is

@@ -302,184 +302,203 @@ impl FileServer {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use http::header::ACCEPT_ENCODING;
-//     use scopeguard::defer;
-//     use std::{fs, path::Path, sync::Mutex};
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http::header::ACCEPT_ENCODING;
+    use scopeguard::defer;
+    use std::{fs, path::Path, sync::Mutex};
 
-//     static TEST_ENV_MUTEX: Mutex<()> = Mutex::new(());
+    static TEST_ENV_MUTEX: Mutex<()> = Mutex::new(());
 
-//     #[test]
-//     fn test_best_encoding_none() {
-//         let enc = SupportedEncoding::best_encoding(&[]);
-//         assert_eq!(enc, SupportedEncoding::None);
-//     }
+    fn header_map(headers: &[(http::HeaderName, &str)]) -> HeaderMap {
+        let mut header_map = HeaderMap::new();
 
-//     #[test]
-//     fn test_best_encoding_with_unknown() {
-//         let enc = SupportedEncoding::best_encoding(&[(
-//             ACCEPT_ENCODING.to_string(),
-//             b"some-weird-encoding".to_vec(),
-//         )]);
-//         assert_eq!(enc, SupportedEncoding::None);
-//     }
+        for (header_name, header_text) in headers {
+            header_map.append(
+                header_name,
+                HeaderValue::from_str(*header_text).expect("bad header text"),
+            );
+        }
 
-//     #[test]
-//     fn test_best_encoding_with_weights() {
-//         let enc = SupportedEncoding::best_encoding(&[(
-//             ACCEPT_ENCODING.to_string(),
-//             b"gzip;br;q=0.1".to_vec(),
-//         )]);
-//         assert_eq!(enc, SupportedEncoding::Gzip);
-//     }
+        header_map
+    }
 
-//     #[test]
-//     fn test_best_encoding_with_multiple_headers() {
-//         let enc = SupportedEncoding::best_encoding(&[
-//             (ACCEPT_ENCODING.to_string(), b"gzip".to_vec()),
-//             (ACCEPT_ENCODING.to_string(), b"br".to_vec()),
-//         ]);
-//         assert_eq!(enc, SupportedEncoding::Brotli);
-//     }
+    #[test]
+    fn test_best_encoding_none() {
+        let enc = SupportedEncoding::best_encoding(&&header_map(&[]));
+        assert_eq!(enc, SupportedEncoding::None);
+    }
 
-//     #[test]
-//     fn test_best_encoding_with_gzip() {
-//         let enc =
-//             SupportedEncoding::best_encoding(&[(ACCEPT_ENCODING.to_string(), b"gzip".to_vec())]);
-//         assert_eq!(enc, SupportedEncoding::Gzip);
-//     }
+    #[test]
+    fn test_best_encoding_with_unknown() {
+        let enc = SupportedEncoding::best_encoding(&header_map(&[(
+            ACCEPT_ENCODING,
+            "some-weird-encoding",
+        )]));
+        assert_eq!(enc, SupportedEncoding::None);
+    }
 
-//     #[test]
-//     fn test_best_encoding_with_deflate() {
-//         let enc =
-//             SupportedEncoding::best_encoding(&[(ACCEPT_ENCODING.to_string(), b"deflate".to_vec())]);
-//         assert_eq!(enc, SupportedEncoding::Deflate);
-//     }
+    #[test]
+    fn test_best_encoding_with_weights() {
+        let enc = SupportedEncoding::best_encoding(&header_map(&[
+            (ACCEPT_ENCODING, "gzip"),
+            (ACCEPT_ENCODING, "br;q=0.1"),
+        ]));
+        assert_eq!(enc, SupportedEncoding::Gzip);
 
-//     #[test]
-//     fn test_best_encoding_with_br() {
-//         let enc =
-//             SupportedEncoding::best_encoding(&[(ACCEPT_ENCODING.to_string(), b"gzip,br".to_vec())]);
-//         assert_eq!(enc, SupportedEncoding::Brotli);
-//     }
+        let enc = SupportedEncoding::best_encoding(&header_map(&[
+            (ACCEPT_ENCODING, "gzip;q=0.1"),
+            (ACCEPT_ENCODING, "br;q=0.9"),
+        ]));
+        assert_eq!(enc, SupportedEncoding::Brotli);
+    }
 
-//     #[test]
-//     fn test_serve_file_found() {
-//         let (status, ..) =
-//             FileServer::make_response(b"./hello-test.txt", SupportedEncoding::None, b"").unwrap();
-//         assert_eq!(status, StatusCode::OK);
-//     }
+    #[test]
+    fn test_best_encoding_with_multiple_headers() {
+        let enc = SupportedEncoding::best_encoding(&header_map(&[
+            (ACCEPT_ENCODING, "gzip"),
+            (ACCEPT_ENCODING, "br"),
+        ]));
+        assert_eq!(enc, SupportedEncoding::Brotli);
+    }
 
-//     #[test]
-//     fn test_serve_with_etag() {
-//         let (status, _, reader) = FileServer::make_response(
-//             b"./hello-test.txt",
-//             SupportedEncoding::None,
-//             b"4dca0fd5f424a31b03ab807cbae77eb32bf2d089eed1cee154b3afed458de0dc",
-//         )
-//         .unwrap();
-//         assert_eq!(status, StatusCode::NOT_MODIFIED);
-//         assert!(reader.is_none());
-//     }
+    #[test]
+    fn test_best_encoding_with_gzip() {
+        let enc = SupportedEncoding::best_encoding(&header_map(&[(ACCEPT_ENCODING, "gzip")]));
+        assert_eq!(enc, SupportedEncoding::Gzip);
+    }
 
-//     #[test]
-//     fn test_serve_file_not_found() {
-//         let (status, _, reader) =
-//             FileServer::make_response(b"non-exisitent-file", SupportedEncoding::None, b"").unwrap();
-//         assert_eq!(status, StatusCode::NOT_FOUND);
-//         let mut actual_body = Vec::new();
-//         reader.unwrap().read_to_end(&mut actual_body).unwrap();
-//         assert_eq!(actual_body.as_slice(), b"Not Found");
-//     }
+    #[test]
+    fn test_best_encoding_with_deflate() {
+        let enc = SupportedEncoding::best_encoding(&header_map(&[(ACCEPT_ENCODING, "deflate")]));
+        assert_eq!(enc, SupportedEncoding::Deflate);
+    }
 
-//     #[test]
-//     fn test_serve_custom_404() {
-//         let _lock = TEST_ENV_MUTEX.lock().unwrap();
+    #[test]
+    fn test_best_encoding_with_br() {
+        let enc = SupportedEncoding::best_encoding(&header_map(&[
+            (ACCEPT_ENCODING, "gzip"),
+            (ACCEPT_ENCODING, "br"),
+        ]));
+        assert_eq!(enc, SupportedEncoding::Brotli);
+    }
 
-//         // reuse existing asset as custom 404 doc
-//         let custom_404_path = "hello-test.txt";
-//         let expected_body =
-//             fs::read(Path::new(custom_404_path)).expect("Could not read custom 404 file");
+    #[test]
+    fn test_serve_file_found() {
+        let (status, ..) =
+            FileServer::make_response("./hello-test.txt", SupportedEncoding::None, b"").unwrap();
+        assert_eq!(status, StatusCode::OK);
+    }
 
-//         std::env::set_var(CUSTOM_404_PATH_ENV, custom_404_path);
-//         defer! {
-//             std::env::remove_var(CUSTOM_404_PATH_ENV);
-//         }
+    #[test]
+    fn test_serve_with_etag() {
+        let (status, _, reader) = FileServer::make_response(
+            "./hello-test.txt",
+            SupportedEncoding::None,
+            b"4dca0fd5f424a31b03ab807cbae77eb32bf2d089eed1cee154b3afed458de0dc",
+        )
+        .unwrap();
+        assert_eq!(status, StatusCode::NOT_MODIFIED);
+        assert!(reader.is_none());
+    }
 
-//         let (status, _, reader) =
-//             FileServer::make_response(b"non-exisitent-file", SupportedEncoding::None, b"").unwrap();
-//         assert_eq!(status, StatusCode::OK);
-//         let mut actual_body = Vec::new();
-//         reader.unwrap().read_to_end(&mut actual_body).unwrap();
-//         assert_eq!(actual_body, expected_body);
-//     }
+    #[test]
+    fn test_serve_file_not_found() {
+        // Although this doesn't modify the environment, it can be affected if
+        // another test is concurrently meddling with the environment.
+        let _lock = TEST_ENV_MUTEX.lock().unwrap();
 
-//     #[test]
-//     fn test_serve_non_existing_custom_404() {
-//         let _lock = TEST_ENV_MUTEX.lock().unwrap();
+        let (status, _, reader) =
+            FileServer::make_response("non-exisitent-file", SupportedEncoding::None, b"").unwrap();
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        let mut actual_body = Vec::new();
+        reader.unwrap().read_to_end(&mut actual_body).unwrap();
+        assert_eq!(actual_body.as_slice(), b"Not Found");
+    }
 
-//         // provide a invalid path
-//         let custom_404_path = "non-existing-404.html";
+    #[test]
+    fn test_serve_custom_404() {
+        let _lock = TEST_ENV_MUTEX.lock().unwrap();
 
-//         std::env::set_var(CUSTOM_404_PATH_ENV, custom_404_path);
-//         defer! {
-//             std::env::remove_var(CUSTOM_404_PATH_ENV);
-//         }
+        // reuse existing asset as custom 404 doc
+        let custom_404_path = "hello-test.txt";
+        let expected_body =
+            fs::read(Path::new(custom_404_path)).expect("Could not read custom 404 file");
 
-//         let (status, _, reader) =
-//             FileServer::make_response(b"non-exisitent-file", SupportedEncoding::None, b"").unwrap();
-//         assert_eq!(status, StatusCode::NOT_FOUND);
-//         let mut actual_body = Vec::new();
-//         reader.unwrap().read_to_end(&mut actual_body).unwrap();
-//         assert_eq!(actual_body.as_slice(), b"Not Found");
-//     }
+        std::env::set_var(CUSTOM_404_PATH_ENV, custom_404_path);
+        defer! {
+            std::env::remove_var(CUSTOM_404_PATH_ENV);
+        }
 
-//     #[test]
-//     fn test_serve_file_not_found_with_fallback_path() {
-//         let _lock = TEST_ENV_MUTEX.lock().unwrap();
+        let (status, _, reader) =
+            FileServer::make_response("non-exisitent-file", SupportedEncoding::None, b"").unwrap();
+        assert_eq!(status, StatusCode::OK);
+        let mut actual_body = Vec::new();
+        reader.unwrap().read_to_end(&mut actual_body).unwrap();
+        assert_eq!(actual_body, expected_body);
+    }
 
-//         // reuse existing asset as fallback
-//         let fallback_path = "hello-test.txt";
-//         let expected_body =
-//             fs::read(Path::new(fallback_path)).expect("Could not read fallback file");
+    #[test]
+    fn test_serve_non_existing_custom_404() {
+        let _lock = TEST_ENV_MUTEX.lock().unwrap();
 
-//         std::env::set_var(FALLBACK_PATH_ENV, fallback_path);
-//         defer! {
-//             std::env::remove_var(FALLBACK_PATH_ENV);
-//         }
+        // provide a invalid path
+        let custom_404_path = "non-existing-404.html";
 
-//         let (status, _, reader) =
-//             FileServer::make_response(b"non-exisitent-file", SupportedEncoding::None, b"").unwrap();
-//         assert_eq!(status, StatusCode::OK);
-//         let mut actual_body = Vec::new();
-//         reader.unwrap().read_to_end(&mut actual_body).unwrap();
-//         assert_eq!(actual_body, expected_body);
-//     }
+        std::env::set_var(CUSTOM_404_PATH_ENV, custom_404_path);
+        defer! {
+            std::env::remove_var(CUSTOM_404_PATH_ENV);
+        }
 
-//     #[test]
-//     fn test_serve_index() {
-//         // Test against path with trailing slash
-//         let (status, ..) = FileServer::make_response(b"./", SupportedEncoding::None, b"").unwrap();
-//         assert_eq!(status, StatusCode::OK);
+        let (status, _, reader) =
+            FileServer::make_response("non-exisitent-file", SupportedEncoding::None, b"").unwrap();
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        let mut actual_body = Vec::new();
+        reader.unwrap().read_to_end(&mut actual_body).unwrap();
+        assert_eq!(actual_body.as_slice(), b"Not Found");
+    }
 
-//         // Test against empty path
-//         let (status, ..) = FileServer::make_response(b"", SupportedEncoding::None, b"").unwrap();
-//         assert_eq!(status, StatusCode::OK);
-//     }
+    #[test]
+    fn test_serve_file_not_found_with_fallback_path() {
+        let _lock = TEST_ENV_MUTEX.lock().unwrap();
 
-//     #[test]
-//     fn test_serve_fallback_favicon() {
-//         let (status, _, reader) = FileServer::make_response(
-//             FAVICON_PNG_FILENAME.as_bytes(),
-//             SupportedEncoding::None,
-//             b"",
-//         )
-//         .unwrap();
-//         assert_eq!(status, StatusCode::OK);
-//         let mut actual_body = Vec::new();
-//         reader.unwrap().read_to_end(&mut actual_body).unwrap();
-//         assert_eq!(actual_body, FALLBACK_FAVICON_PNG);
-//     }
-// }
+        // reuse existing asset as fallback
+        let fallback_path = "hello-test.txt";
+        let expected_body =
+            fs::read(Path::new(fallback_path)).expect("Could not read fallback file");
+
+        std::env::set_var(FALLBACK_PATH_ENV, fallback_path);
+        defer! {
+            std::env::remove_var(FALLBACK_PATH_ENV);
+        }
+
+        let (status, _, reader) =
+            FileServer::make_response("non-exisitent-file", SupportedEncoding::None, b"").unwrap();
+        assert_eq!(status, StatusCode::OK);
+        let mut actual_body = Vec::new();
+        reader.unwrap().read_to_end(&mut actual_body).unwrap();
+        assert_eq!(actual_body, expected_body);
+    }
+
+    #[test]
+    fn test_serve_index() {
+        // Test against path with trailing slash
+        let (status, ..) = FileServer::make_response("./", SupportedEncoding::None, b"").unwrap();
+        assert_eq!(status, StatusCode::OK);
+
+        // Test against empty path
+        let (status, ..) = FileServer::make_response("", SupportedEncoding::None, b"").unwrap();
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    #[test]
+    fn test_serve_fallback_favicon() {
+        let (status, _, reader) =
+            FileServer::make_response(FAVICON_PNG_FILENAME, SupportedEncoding::None, b"").unwrap();
+        assert_eq!(status, StatusCode::OK);
+        let mut actual_body = Vec::new();
+        reader.unwrap().read_to_end(&mut actual_body).unwrap();
+        assert_eq!(actual_body, FALLBACK_FAVICON_PNG);
+    }
+}
