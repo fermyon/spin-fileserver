@@ -13,7 +13,6 @@ and [NGINX Unit](https://unit.nginx.org/).
   - [Testing](#testing)
   - [Using the component as part of a Spin application](#using-the-component-as-part-of-a-spin-application)
     - [Running the file server](#running-the-file-server)
-    - [Component composition with the file server](#component-composition-with-the-file-server)
   - [Configuration options](#configuration-options)
     - [Setting the cache header](#setting-the-cache-header)
     - [Setting the fallback path](#setting-the-fallback-path)
@@ -25,13 +24,13 @@ and [NGINX Unit](https://unit.nginx.org/).
 Prerequisites:
 
 - [Rust](https://www.rust-lang.org/) at [1.93+](https://www.rust-lang.org/tools/install) with the `wasm32-wasip2` target configured
-- [cargo-component](https://github.com/bytecodealliance/cargo-component)
+- [cargo](https://github.com/bytecodealliance/cargo-component)
 - [Spin v2.0](https://github.com/fermyon/spin) to run the component/examples
 
 Compiling the component:
 
 ```shell
-$ cargo component build --release
+$ cargo build --release --target wasm32-wasip2
 ```
 
 See the [examples](./examples) directory for examples of using and composing `spin-fileserver` with applications.
@@ -120,15 +119,6 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
 See also the [rust-standalone example](./examples/rust-standalone/) showing use of the file server
 alongside a simple Rust-based application.
-
-### Component composition with the file server
-
-The file server can also be composed with application logic to form one binary that can be run
-as a Spin application. See the following examples using the language and toolchains of your choice:
-
-- [Rust](./examples/rust)
-- [Javascript](./examples/javascript)
-- [Python](./examples/python)
 
 ## Configuration options
 

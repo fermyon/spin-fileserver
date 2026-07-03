@@ -1,5 +1,0 @@
-world proxy {
-  include wasi:http/proxy@0.2.0;
-  
-  import wasi:http/incoming-handler@0.2.0;
-}
