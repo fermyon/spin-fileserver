@@ -12,13 +12,13 @@ component = "fs"
 
 # For more on configuring a component, see: https://developer.fermyon.com/spin/writing-apps
 [component.fs]
-source = "target/wasm32-wasip1/release/spin_static_fs.wasm"
+source = "target/wasm32-wasip2/release/spin_static_fs.wasm"
 files = [{ source = "", destination = "/" }]
 exclude_files = ["target/**/*"]
 [component.fs.build]
 command = "make"
 
 [component.fs.tool.spin-test]
-source = "target/wasm32-wasip1/release/tests.wasm"
-build = "cargo component build --release"
+source = "target/wasm32-wasip2/release/tests.wasm"
+build = "cargo build --release --target wasm32-wasip2"
 workdir = "tests"

@@ -8,13 +8,13 @@ in the [rust](../rust), [javascript](../javascript/) and [pythong](../python/) e
 ## Prerequisites
 
 - [Spin v2.0+](https://developer.fermyon.com/spin/install)
-- [Rust](https://rustup.rs/), including the `wasm32-wasip1` target
+- [Rust](https://rustup.rs/), including the `wasm32-wasip2` target
 - [curl](https://curl.se/download.html) or a web browser for testing
   
 Once you have Rust installed, the following should give you everything else:
 
 ```shell
-rustup target add wasm32-wasip1
+rustup target add wasm32-wasip2
 ```
 
 ## Building and Running

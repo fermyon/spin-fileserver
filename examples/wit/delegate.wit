@@ -1,3 +1,0 @@
-world delegate {
-  import wasi:http/incoming-handler@0.2.0;
-}

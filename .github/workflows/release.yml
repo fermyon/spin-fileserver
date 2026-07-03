@@ -19,12 +19,12 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.86
+          toolchain: 1.93
           default: true
           components: clippy, rustfmt
 
       - name: Install Wasm Rust target
-        run: rustup target add wasm32-wasip1
+        run: rustup target add wasm32-wasip2
 
       - name: Make
         run: make
@@ -33,7 +33,7 @@ jobs:
 
       - name: generate checksums
         run: |
-          sha256sum target/wasm32-wasip1/release/spin_static_fs.wasm > checksums-${{ env.RELEASE_VERSION }}.txt
+          sha256sum target/wasm32-wasip2/release/spin_static_fs.wasm > checksums-${{ env.RELEASE_VERSION }}.txt
 
       - name: Create release
         uses: softprops/action-gh-release@v1
@@ -41,5 +41,5 @@ jobs:
           fail_on_unmatched_files: true
           generate_release_notes: true
           files: |
-            target/wasm32-wasip1/release/spin_static_fs.wasm
+            target/wasm32-wasip2/release/spin_static_fs.wasm
             checksums-${{ env.RELEASE_VERSION }}.txt

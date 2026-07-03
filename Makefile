@@ -1,6 +1,6 @@
 .PHONY: default
 default: test
-	cargo build --release
+	cargo build --release --target wasm32-wasip2
 
 .PHONY: test
 test: lint test-unit

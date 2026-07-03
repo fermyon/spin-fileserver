@@ -8,25 +8,29 @@ can be used with any runtime that supports `wasi:http@0.2.0-rc-2023-10-18`, such
 [Spin 2.0](https://developer.fermyon.com/spin/install), [wasmtime](https://github.com/bytecodealliance/wasmtime)
 and [NGINX Unit](https://unit.nginx.org/).
 
-- [Building from source](#building-from-source)
-- [Testing](#testing)
-- [Using the component](#using-the-component-as-part-of-a-spin-application)
-  - [Running the file server](#running-the-file-server)
-  - [Composing with the file server](#component-composition-with-the-file-server)
-- [Configuration options](#configuration-options)
+- [Static file server for Spin applications](#static-file-server-for-spin-applications)
+  - [Building from source](#building-from-source)
+  - [Testing](#testing)
+  - [Using the component as part of a Spin application](#using-the-component-as-part-of-a-spin-application)
+    - [Running the file server](#running-the-file-server)
+  - [Configuration options](#configuration-options)
+    - [Setting the cache header](#setting-the-cache-header)
+    - [Setting the fallback path](#setting-the-fallback-path)
+    - [Using a custom 404 document](#using-a-custom-404-document)
+    - [Fallback favicon](#fallback-favicon)
 
 ## Building from source
 
 Prerequisites:
 
-- [Rust](https://www.rust-lang.org/) at [1.72+](https://www.rust-lang.org/tools/install) with the `wasm32-wasip1` target configured
-- [cargo-component](https://github.com/bytecodealliance/cargo-component)
+- [Rust](https://www.rust-lang.org/) at [1.93+](https://www.rust-lang.org/tools/install) with the `wasm32-wasip2` target configured
+- [cargo](https://github.com/bytecodealliance/cargo-component)
 - [Spin v2.0](https://github.com/fermyon/spin) to run the component/examples
 
 Compiling the component:
 
 ```shell
-$ cargo component build --release
+$ cargo build --release --target wasm32-wasip2
 ```
 
 See the [examples](./examples) directory for examples of using and composing `spin-fileserver` with applications.
@@ -36,7 +40,7 @@ See the [examples](./examples) directory for examples of using and composing `sp
 Prerequisites:
 
 - [Rust](https://www.rust-lang.org/) at
-  [1.72+](https://www.rust-lang.org/tools/install) with the `wasm32-wasip1` target
+  [1.72+](https://www.rust-lang.org/tools/install) with the `wasm32-wasip2` target
   configured
 
 Running test cases:
@@ -84,7 +88,7 @@ component = "fs"
 
 # For more on configuring a component, see: https://developer.fermyon.com/spin/writing-apps
 [component.fs]
-source = "target/wasm32-wasip1/release/spin_static_fs.wasm"
+source = "target/wasm32-wasip2/release/spin_static_fs.wasm"
 files = [{ source = "", destination = "/" }]
 [component.fs.build]
 command = "make"
@@ -116,15 +120,6 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 See also the [rust-standalone example](./examples/rust-standalone/) showing use of the file server
 alongside a simple Rust-based application.
 
-### Component composition with the file server
-
-The file server can also be composed with application logic to form one binary that can be run
-as a Spin application. See the following examples using the language and toolchains of your choice:
-
-- [Rust](./examples/rust)
-- [Javascript](./examples/javascript)
-- [Python](./examples/python)
-
 ## Configuration options
 
 The Spin fileserver supports various configuration options.
@@ -145,7 +140,7 @@ is useful for Single Page Applications that use view routers on the front-end li
 ```toml
 # For more on configuring a component, see: https://developer.fermyon.com/spin/writing-apps#adding-environment-variables-to-components
 [component.fs]
-source = "target/wasm32-wasip1/release/spin_static_fs.wasm"
+source = "target/wasm32-wasip2/release/spin_static_fs.wasm"
 files = [{ source = "test", destination = "/" }]
 environment = { FALLBACK_PATH = "index.html" }
 ```
@@ -157,7 +152,7 @@ You can configure a `CUSTOM_404_PATH` environment variable and point to a file t
 ```toml
 # For more on configuring a component, see: https://developer.fermyon.com/spin/writing-apps#adding-environment-variables-to-components
 [component.fs]
-source = "target/wasm32-wasip1/release/spin_static_fs.wasm"
+source = "target/wasm32-wasip2/release/spin_static_fs.wasm"
 files = [{ source = "test", destination = "/" }]
 environment = { CUSTOM_404_PATH = "404.html" }
 ```
